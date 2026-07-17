@@ -279,11 +279,15 @@ export default function DashboardPage() {
                       }`}
                       style={{ aspectRatio: "1 / 0.76" }}
                     >
-                      {/* Background */}
-                      <div
-                        className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110"
-                        style={{ backgroundImage: `url(${item.renderImage || item.icon})` }}
-                      />
+                      {/* Background image */}
+                      {(item.renderImage || item.icon) ? (
+                        <div
+                          className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110"
+                          style={{ backgroundImage: `url(${item.renderImage || item.icon})` }}
+                        />
+                      ) : (
+                        <div className="absolute inset-0 bg-[#1a1a2e]" />
+                      )}
 
                       {/* Gradient overlay */}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />

@@ -37,8 +37,10 @@ interface ShopItemModalProps {
 }
 
 function ShopCard({ item, onClick }: { item: ShopItem; onClick: () => void }) {
-  const [imgSrc, setImgSrc] = useState(item.renderImage || item.icon);
+  const [imgSrc, setImgSrc] = useState(item.renderImage || item.icon || "");
+  const hasImage = !!imgSrc;
   const onSale = item.finalPrice < item.regularPrice;
+  const bgColor = item.bgColor || "#1a1a2e";
   const discount = onSale
     ? Math.round(((item.regularPrice - item.finalPrice) / item.regularPrice) * 100)
     : 0;
@@ -50,30 +52,38 @@ function ShopCard({ item, onClick }: { item: ShopItem; onClick: () => void }) {
       style={{ aspectRatio: "1 / 0.76" }}
     >
       {/* Background image */}
+      {hasImage ? (
+        <div
+          className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110"
+          style={{ backgroundImage: `url(${imgSrc})` }}
+        />
+      ) : null}
+
+      {/* Solid bg fallback when no image */}
       <div
-        className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110"
-        style={{ backgroundImage: `url(${imgSrc})` }}
+        className="absolute inset-0 transition-transform duration-700 group-hover:scale-110"
+        style={{ backgroundColor: hasImage ? "transparent" : bgColor }}
       />
 
       {/* Gradient overlay */}
       <div
         className="absolute inset-0"
         style={{
-          background: item.bgColor
-            ? `linear-gradient(0deg, ${item.bgColor} 0%, ${item.bgColor}00 100%)`
-            : "linear-gradient(0deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%)",
+          background: `linear-gradient(0deg, ${bgColor} 0%, ${bgColor}00 100%)`,
         }}
       />
 
       {/* Hidden img for onError fallback */}
-      <img
-        src={imgSrc}
-        alt=""
-        className="hidden"
-        onError={() => {
-          if (imgSrc !== item.icon) setImgSrc(item.icon);
-        }}
-      />
+      {hasImage ? (
+        <img
+          src={imgSrc}
+          alt=""
+          className="hidden"
+          onError={() => {
+            if (imgSrc !== item.icon) setImgSrc(item.icon || "");
+          }}
+        />
+      ) : null}
 
       {/* Discount badge */}
       {onSale && (
