@@ -14,7 +14,50 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  items TrackedItem[]
+  trackedItems TrackedItem[]
+}
+
+model CosmeticItem {
+  id            String   @id
+  name          String
+  description   String?
+  itemType      String
+  itemTypeDisplay String?
+  rarity        String?
+  rarityDisplay String?
+  series        String?
+  set           String?
+  introductionChapter String?
+  introductionSeason  String?
+  introductionText    String?
+  iconUrl       String?
+  smallIconUrl  String?
+  addedToApi    DateTime?
+  isUnreleased  Boolean  @default(false)
+  lastShopAppearance DateTime?
+  shopAppearances Int    @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  shopHistory ShopAppearance[]
+
+  @@index([itemType])
+  @@index([rarity])
+  @@index([isUnreleased])
+  @@index([name])
+}
+
+model ShopAppearance {
+  id        String   @id @default(uuid())
+  itemId    String
+  seenAt    DateTime @default(now())
+  price     Int?
+  section   String?
+
+  item CosmeticItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId])
+  @@index([seenAt])
 }
 
 model TrackedItem {
@@ -24,7 +67,8 @@ model TrackedItem {
   itemType  String
   iconUrl   String?
   rarity    String?
-  status    String   @default("owned") // "owned" or "want"
+  status    String   @default("want")
+  createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

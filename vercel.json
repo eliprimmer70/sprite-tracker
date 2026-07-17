@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cosmetics/track-shop",
+      "schedule": "0 0 * * *"
+    }
+  ]
+}
