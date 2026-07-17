@@ -8,7 +8,7 @@ export async function GET() {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const items = await prisma.ownedItem.findMany({
+  const items = await prisma.trackedItem.findMany({
     where: { userId: session.userId },
     orderBy: { itemType: "asc" },
   });

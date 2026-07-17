@@ -9,34 +9,39 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { itemId, itemType, itemName, iconUrl, rarity, series } = await req.json();
+    const { itemName, itemType, iconUrl, rarity, status } = await req.json();
 
-    if (!itemId) {
-      return NextResponse.json({ error: "itemId required" }, { status: 400 });
+    if (!itemName) {
+      return NextResponse.json({ error: "itemName required" }, { status: 400 });
     }
 
-    const existing = await prisma.ownedItem.findUnique({
-      where: { userId_itemId: { userId: session.userId, itemId } },
-    });
-
-    if (existing) {
-      await prisma.ownedItem.delete({ where: { id: existing.id } });
-      return NextResponse.json({ owned: false });
-    }
-
-    await prisma.ownedItem.create({
-      data: {
-        userId: session.userId,
-        itemId,
-        itemType: itemType ?? "unknown",
-        itemName: itemName ?? itemId,
-        iconUrl: iconUrl ?? null,
-        rarity: rarity ?? null,
-        series: series ?? null,
+    const existing = await prisma.trackedItem.findUnique({
+      where: {
+        userId_itemName_itemType: {
+          userId: session.userId,
+          itemName,
+          itemType: itemType ?? "unknown",
+        },
       },
     });
 
-    return NextResponse.json({ owned: true });
+    if (existing) {
+      await prisma.trackedItem.delete({ where: { id: existing.id } });
+      return NextResponse.json({ tracked: false, status: null });
+    }
+
+    await prisma.trackedItem.create({
+      data: {
+        userId: session.userId,
+        itemName,
+        itemType: itemType ?? "unknown",
+        iconUrl: iconUrl ?? null,
+        rarity: rarity ?? null,
+        status: status ?? "owned",
+      },
+    });
+
+    return NextResponse.json({ tracked: true, status: status ?? "owned" });
   } catch (err) {
     console.error("Toggle item error:", err);
     return NextResponse.json({ error: "Failed to toggle item" }, { status: 500 });

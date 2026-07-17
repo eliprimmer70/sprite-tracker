@@ -14,37 +14,20 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  items OwnedItem[]
+  items TrackedItem[]
 }
 
-model OwnedItem {
+model TrackedItem {
   id        String   @id @default(uuid())
   userId    String
-  itemId    String
-  itemType  String
   itemName  String
+  itemType  String
   iconUrl   String?
   rarity    String?
-  series    String?
-  addedAt   DateTime @default(now())
+  status    String   @default("owned") // "owned" or "want"
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, itemId])
+  @@unique([userId, itemName, itemType])
   @@index([userId])
-}
-
-model CatalogItem {
-  id          String  @id
-  itemType    String
-  itemName    String
-  iconUrl     String?
-  rarity      String?
-  series      String?
-  description String?
-  isActive    Boolean @default(true)
-  updatedAt   DateTime @updatedAt
-
-  @@index([itemType])
-  @@index([isActive])
 }

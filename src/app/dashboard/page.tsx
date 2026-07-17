@@ -3,78 +3,42 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-interface CatalogItem {
-  id: string;
-  itemType: string;
-  itemName: string;
-  iconUrl: string | null;
-  rarity: string | null;
-  series: string | null;
+interface ShopItem {
+  name: string;
+  icon: string;
+  renderImage: string;
+  regularPrice: number;
+  finalPrice: number;
+  section: string;
+  rarity: string;
+  type: string;
 }
 
-type Tab = "all" | "missing" | "owned";
+interface ShopSection {
+  name: string;
+  items: ShopItem[];
+}
 
-const TYPE_ICONS: Record<string, string> = {
-  outfit: "👕",
-  backpack: "🎒",
-  pickaxe: "⛏️",
-  emote: "💃",
-  glider: "🪂",
-  wrap: "🎨",
-  spray: "🎭",
-  emoji: "😄",
-  loading_screen: "🖼️",
-  music_pack: "🎵",
-  contrail: "✨",
-  pet: "🐾",
-};
+interface TrackedEntry {
+  itemName: string;
+  itemType: string;
+  status: string;
+}
 
-const TYPE_ORDER = [
-  "outfit",
-  "backpack",
-  "pickaxe",
-  "glider",
-  "wrap",
-  "emote",
-  "spray",
-  "emoji",
-  "loading_screen",
-  "music_pack",
-  "contrail",
-  "pet",
-];
-
-const RARITY_COLORS: Record<string, string> = {
-  uncommon: "from-green-500/20 to-green-500/5 border-green-500/30",
-  rare: "from-blue-500/20 to-blue-500/5 border-blue-500/30",
-  epic: "from-purple-500/20 to-purple-500/5 border-purple-500/30",
-  legendary: "from-orange-500/20 to-orange-500/5 border-orange-500/30",
-  marvel: "from-red-500/20 to-red-500/5 border-red-500/30",
-  dc: "from-blue-500/20 to-blue-500/5 border-blue-500/30",
-  icon: "from-cyan-500/20 to-cyan-500/5 border-cyan-500/30",
-  gaminglegends: "from-yellow-500/20 to-yellow-500/5 border-yellow-500/30",
-};
-
-const RARITY_BORDERS: Record<string, string> = {
-  uncommon: "ring-green-500/30",
-  rare: "ring-blue-500/30",
-  epic: "ring-purple-500/30",
-  legendary: "ring-orange-500/30",
-  marvel: "ring-red-500/30",
-  dc: "ring-blue-500/30",
-  icon: "ring-cyan-500/30",
-  gaminglegends: "ring-yellow-500/30",
+const statusIcons: Record<string, string> = {
+  owned: "✅",
+  want: "⭐",
 };
 
 export default function DashboardPage() {
   const router = useRouter();
   const [username, setUsername] = useState("");
-  const [catalog, setCatalog] = useState<CatalogItem[]>([]);
-  const [owned, setOwned] = useState<Set<string>>(new Set());
+  const [sections, setSections] = useState<ShopSection[]>([]);
+  const [tracked, setTracked] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<Tab>("all");
-  const [typeFilter, setTypeFilter] = useState("all");
-  const [toggling, setToggling] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [activeSection, setActiveSection] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
   useEffect(() => {
     fetch("/api/user/profile")
@@ -87,17 +51,21 @@ export default function DashboardPage() {
   }, [router]);
 
   const loadData = useCallback(async () => {
-    const [catalogRes, invRes] = await Promise.all([
-      fetch("/api/catalog"),
+    const [shopRes, invRes] = await Promise.all([
+      fetch("/api/shop"),
       fetch("/api/user/inventory"),
     ]);
-    if (catalogRes.ok) {
-      const d = await catalogRes.json();
-      setCatalog(d.items ?? []);
+    if (shopRes.ok) {
+      const d = await shopRes.json();
+      setSections(d.sections ?? []);
     }
     if (invRes.ok) {
       const d = await invRes.json();
-      setOwned(new Set(d.items.map((i: { itemId: string }) => i.itemId)));
+      const map = new Map<string, string>();
+      for (const item of d.items ?? []) {
+        map.set(`${item.itemName}|${item.itemType}`, item.status);
+      }
+      setTracked(map);
     }
     setLoading(false);
   }, []);
@@ -106,220 +74,296 @@ export default function DashboardPage() {
     loadData();
   }, [loadData]);
 
-  async function toggleItem(item: CatalogItem) {
-    setToggling(item.id);
+  const syncShop = useCallback(async () => {
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/shop");
+      const d = await res.json();
+      setSections(d.sections ?? []);
+    } catch (e) {
+      console.error(e);
+    }
+    setSyncing(false);
+  }, []);
+
+  async function toggleItem(item: ShopItem) {
+    const key = `${item.name}|${item.type}`;
+    const current = tracked.get(key);
+
     try {
       const res = await fetch("/api/user/toggle-item", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          itemId: item.id,
-          itemType: item.itemType,
-          itemName: item.itemName,
-          iconUrl: item.iconUrl,
+          itemName: item.name,
+          itemType: item.type || "unknown",
+          iconUrl: item.icon,
           rarity: item.rarity,
-          series: item.series,
+          status: current === "owned" ? "want" : "owned",
         }),
       });
       const data = await res.json();
-      setOwned((prev) => {
-        const next = new Set(prev);
-        if (data.owned) next.add(item.id);
-        else next.delete(item.id);
+      setTracked((prev) => {
+        const next = new Map(prev);
+        if (data.tracked) {
+          next.set(key, data.status);
+        } else {
+          next.delete(key);
+        }
         return next;
       });
-    } finally {
-      setToggling(null);
+    } catch (e) {
+      console.error(e);
     }
   }
 
-  const filtered = catalog
-    .filter((item) => {
-      const has = owned.has(item.id);
-      if (tab === "owned" && !has) return false;
-      if (tab === "missing" && has) return false;
-      return true;
-    })
-    .filter((item) => typeFilter === "all" || item.itemType === typeFilter)
-    .sort((a, b) => {
-      const ai = TYPE_ORDER.indexOf(a.itemType);
-      const bi = TYPE_ORDER.indexOf(b.itemType);
-      if (ai !== bi) return ai - bi;
-      return a.itemName.localeCompare(b.itemName);
-    });
+  const flatItems = sections.flatMap((s) => s.items);
+  const sectionNames = sections.map((s) => s.name);
 
-  const types = [...new Set(catalog.map((i) => i.itemType))].sort(
-    (a, b) => TYPE_ORDER.indexOf(a) - TYPE_ORDER.indexOf(b)
-  );
+  const activeSections =
+    activeSection === "all"
+      ? sections
+      : sections.filter((s) => s.name === activeSection);
 
-  const total = catalog.length;
-  const ownedCount = catalog.filter((i) => owned.has(i.id)).length;
-  const pct = total > 0 ? Math.round((ownedCount / total) * 100) : 0;
+  const ownedCount = flatItems.filter(
+    (i) => tracked.get(`${i.name}|${i.type}`) === "owned"
+  ).length;
+  const wantCount = flatItems.filter(
+    (i) => tracked.get(`${i.name}|${i.type}`) === "want"
+  ).length;
+
+  const hasDiscount = (item: ShopItem) => item.finalPrice < item.regularPrice;
+  const discountPct = (item: ShopItem) =>
+    Math.round(
+      ((item.regularPrice - item.finalPrice) / item.regularPrice) * 100
+    );
 
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#0a0a0f]">
-        <div className="grid grid-cols-4 gap-4 md:grid-cols-6 lg:grid-cols-8">
-          {Array.from({ length: 16 }).map((_, i) => (
-            <div key={i} className="h-36 w-28 animate-pulse rounded-2xl bg-white/5" />
-          ))}
-        </div>
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#9147ff] border-t-transparent" />
       </div>
     );
   }
 
   return (
-    <div className="relative min-h-screen bg-[#0a0a0f]">
-      {/* Gradient orbs */}
-      <div className="fixed left-0 top-0 h-96 w-96 rounded-full bg-[#4a3aff]/10 blur-[120px]" />
-      <div className="fixed right-0 top-1/3 h-80 w-80 rounded-full bg-[#9147ff]/5 blur-[100px]" />
-
-      <div className="relative mx-auto max-w-7xl px-4 py-8 md:px-8">
-        {/* Header */}
-        <header className="mb-10 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
-              Sprite Tracker
-            </h1>
-            <p className="mt-1 text-sm text-[#6b7280]">{username}</p>
+    <div className="min-h-screen bg-[#0a0a0f] text-white">
+      {/* Nav */}
+      <div className="sticky top-0 z-40 border-b border-white/5 bg-[#0a0a0f]/95 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 md:px-8">
+          <div className="flex items-center gap-3">
+            <span className="text-xl">🎯</span>
+            <span className="text-lg font-bold">Sprite Tracker</span>
+            <span className="rounded bg-white/10 px-2 py-0.5 text-xs text-white/50">
+              {username}
+            </span>
           </div>
-          <a
-            href="/api/auth/logout"
-            className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm text-[#6b7280] transition-colors hover:border-white/20 hover:text-white"
-          >
-            Logout
-          </a>
-        </header>
-
-        {/* Stats Cards */}
-        <div className="mb-10 grid grid-cols-3 gap-4">
-          {[
-            { label: "Total Cosmetics", value: total, color: "text-white" },
-            { label: "Owned", value: ownedCount, color: "text-green-400" },
-            { label: "Complete", value: `${pct}%`, color: "text-[#9147ff]" },
-          ].map((s) => (
-            <div
-              key={s.label}
-              className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-center backdrop-blur-sm transition-all hover:border-white/20"
+          <div className="flex items-center gap-3">
+            <button
+              onClick={syncShop}
+              disabled={syncing}
+              className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white/70 transition-all hover:border-white/20 hover:text-white disabled:opacity-50"
             >
-              <p className={`text-3xl font-bold ${s.color}`}>{s.value}</p>
-              <p className="mt-1 text-xs uppercase tracking-wider text-[#6b7280]">
-                {s.label}
-              </p>
-            </div>
+              {syncing ? "Refreshing..." : "Refresh Shop"}
+            </button>
+            <a
+              href="/api/auth/logout"
+              className="rounded-lg px-3 py-1.5 text-sm text-white/50 transition-all hover:text-white"
+            >
+              Logout
+            </a>
+          </div>
+        </div>
+      </div>
+
+      {/* Section filter */}
+      <div className="sticky top-[57px] z-30 border-b border-white/5 bg-[#0d0d15]/95 backdrop-blur-xl">
+        <div className="mx-auto max-w-7xl px-4 md:px-8">
+          <div className="flex gap-2 overflow-x-auto py-3 scrollbar-hide">
+            <button
+              onClick={() => setActiveSection("all")}
+              className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-all ${
+                activeSection === "all"
+                  ? "bg-white text-black"
+                  : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
+              }`}
+            >
+              All ({flatItems.length})
+            </button>
+            {sectionNames.map((name) => (
+              <button
+                key={name}
+                onClick={() => setActiveSection(name)}
+                className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-all ${
+                  activeSection === name
+                    ? "bg-white text-black"
+                    : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
+                }`}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <main className="mx-auto max-w-7xl px-4 py-8 md:px-8">
+        {/* Stats */}
+        <div className="mb-8 grid grid-cols-3 gap-4">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center">
+            <p className="text-2xl font-bold">{flatItems.length}</p>
+            <p className="text-xs text-[#6b7280]">In Shop</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center">
+            <p className="text-2xl font-bold text-green-400">{ownedCount}</p>
+            <p className="text-xs text-[#6b7280]">Owned</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center">
+            <p className="text-2xl font-bold text-yellow-400">{wantCount}</p>
+            <p className="text-xs text-[#6b7280]">Want</p>
+          </div>
+        </div>
+
+        {/* Status tabs */}
+        <div className="mb-6 flex gap-2">
+          {[
+            { key: "all", label: "All", count: flatItems.length },
+            { key: "owned", label: "Owned", count: ownedCount, color: "text-green-400" },
+            { key: "want", label: "Want", count: wantCount, color: "text-yellow-400" },
+            { key: "none", label: "Untracked", count: flatItems.length - ownedCount - wantCount },
+          ].map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setStatusFilter(t.key)}
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${
+                statusFilter === t.key
+                  ? "bg-[#9147ff] text-white"
+                  : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              {t.label} <span className={t.color ?? "text-white/40"}>({t.count})</span>
+            </button>
           ))}
         </div>
 
-        {/* Filters */}
-        <div className="mb-8 flex flex-wrap items-center gap-3">
-          <div className="flex gap-1 rounded-lg border border-white/10 bg-white/5 p-1">
-            {(["all", "missing", "owned"] as Tab[]).map((t) => (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={`rounded-md px-4 py-2 text-sm font-medium capitalize transition-all ${
-                  tab === t
-                    ? "bg-[#9147ff] text-white shadow-lg"
-                    : "text-[#6b7280] hover:text-white"
-                }`}
-              >
-                {t}
-                {t === "all" && ` (${total})`}
-                {t === "missing" && ` (${total - ownedCount})`}
-                {t === "owned" && ` (${ownedCount})`}
-              </button>
-            ))}
-          </div>
+        {/* Shop sections */}
+        {activeSections.map((section) => {
+          const filteredItems = section.items.filter((item) => {
+            const key = `${item.name}|${item.type}`;
+            const status = tracked.get(key);
+            if (statusFilter === "all") return true;
+            if (statusFilter === "none") return !status;
+            return status === statusFilter;
+          });
 
-          <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none backdrop-blur-sm transition-all focus:border-[#9147ff]"
-          >
-            <option value="all">All Types</option>
-            {types.map((t) => (
-              <option key={t} value={t}>
-                {TYPE_ICONS[t] ?? "📦"} {t.replace(/_/g, " ")}
-              </option>
-            ))}
-          </select>
+          if (filteredItems.length === 0) return null;
 
-          <span className="hidden text-xs text-[#6b7280] md:block">
-            Click any cosmetic to toggle owned
-          </span>
-        </div>
+          const hasRender = section.items.some((i) => i.renderImage);
 
-        {/* Cosmetic Grid */}
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
-          {filtered.map((item, idx) => {
-            const has = owned.has(item.id);
-            const isToggling = toggling === item.id;
-            const rarityColor = item.rarity ?? "";
-            const borderColor = RARITY_BORDERS[rarityColor] ?? "ring-white/10";
+          return (
+            <section key={section.name} className="mb-12">
+              <h3 className="mb-5 text-xl font-bold">{section.name}</h3>
 
-            return (
-              <button
-                key={item.id}
-                onClick={() => toggleItem(item)}
-                disabled={isToggling}
-                className={`group relative overflow-hidden rounded-2xl border p-4 text-left transition-all duration-300 ${
-                  has
-                    ? `border-white/10 bg-white/[0.03] hover:border-[#9147ff]/50 hover:bg-white/[0.06]`
-                    : "border-white/5 bg-white/[0.02] opacity-50 saturate-0 hover:opacity-80 hover:saturate-100"
-                } ${
-                  isToggling ? "pointer-events-none scale-95 opacity-40" : ""
-                } hover:ring-2 ${has ? borderColor : "hover:ring-white/20"}`}
-                style={{ animationDelay: `${idx * 0.02}s` }}
-              >
-                {/* Cosmetic Icon */}
-                <div className="relative mb-3 flex aspect-square items-center justify-center">
-                  <div
-                    className={`absolute inset-0 rounded-xl bg-gradient-to-b ${
-                      RARITY_COLORS[rarityColor] ?? "from-white/5 to-transparent"
-                    }`}
-                  />
-                  {item.iconUrl && (
-                    <img
-                      src={item.iconUrl}
-                      alt={item.itemName}
-                      className="relative h-4/5 w-4/5 object-contain drop-shadow-lg transition-transform duration-300 group-hover:scale-110"
-                      loading="lazy"
-                    />
-                  )}
-                  {/* Owned badge */}
-                  {has && (
-                    <div className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-green-500 shadow-lg shadow-green-500/30">
-                      <svg className="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                  )}
-                </div>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                {filteredItems.map((item, i) => {
+                  const key = `${item.name}|${item.type}`;
+                  const status = tracked.get(key);
+                  const onSale = hasDiscount(item);
+                  const discount = discountPct(item);
+                  const isRender = hasRender && item.renderImage;
 
-                {/* Info */}
-                <div className="space-y-1">
-                  <p className="truncate text-sm font-medium leading-tight">
-                    {item.itemName}
-                  </p>
-                  <p className="truncate text-xs text-[#6b7280] capitalize">
-                    {item.itemType.replace(/_/g, " ")}
-                  </p>
-                </div>
-              </button>
-            );
-          })}
-        </div>
+                  return (
+                    <button
+                      key={`${item.name}-${i}`}
+                      onClick={() => toggleItem(item)}
+                      className={`group relative overflow-hidden rounded-2xl border text-left transition-all ${
+                        status
+                          ? status === "owned"
+                            ? "border-green-500/40 bg-green-500/[0.04]"
+                            : "border-yellow-500/40 bg-yellow-500/[0.04]"
+                          : "border-white/10 bg-white/[0.03] hover:border-white/20"
+                      }`}
+                    >
+                      <div className="relative aspect-square overflow-hidden bg-gradient-to-b from-white/5 to-transparent">
+                        {isRender ? (
+                          <img
+                            src={item.renderImage}
+                            alt={item.name}
+                            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="flex h-full items-center justify-center p-6">
+                            <img
+                              src={item.icon}
+                              alt={item.name}
+                              className="h-full w-full object-contain transition-transform duration-500 group-hover:scale-110"
+                              loading="lazy"
+                            />
+                          </div>
+                        )}
 
-        {filtered.length === 0 && (
+                        {onSale && (
+                          <div className="absolute left-2 top-2 rounded-full bg-red-500 px-2.5 py-0.5 text-xs font-bold">
+                            -{discount}%
+                          </div>
+                        )}
+
+                        <div className="absolute bottom-2 left-2 rounded bg-black/60 px-2 py-0.5 text-[11px] text-white/90 backdrop-blur-sm">
+                          {item.type || "Item"}
+                        </div>
+
+                        {status && (
+                          <div className="absolute right-2 top-2 text-lg drop-shadow-lg">
+                            {statusIcons[status] ?? "✅"}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="p-3">
+                        <p className="truncate text-sm font-medium">
+                          {item.name}
+                        </p>
+                        <div className="mt-2 flex items-center gap-1.5">
+                          {onSale ? (
+                            <>
+                              <span className="text-sm font-bold">
+                                {item.finalPrice}
+                              </span>
+                              <span className="text-xs text-[#6b7280] line-through">
+                                {item.regularPrice}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-sm font-bold">
+                              {item.regularPrice}
+                            </span>
+                          )}
+                          <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="10" fill="#ffd700" />
+                            <text x="12" y="16" textAnchor="middle" fill="#000" fontSize="12" fontWeight="bold">V</text>
+                          </svg>
+                        </div>
+                        {status && (
+                          <p className="mt-1 text-[11px] capitalize text-white/40">
+                            {status === "owned" ? "✅ Owned" : "⭐ Want"}
+                          </p>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })}
+
+        {activeSections.length === 0 && (
           <div className="mt-24 text-center text-[#6b7280]">
-            {catalog.length === 0 ? (
-              <p>Catalog not synced yet.</p>
-            ) : (
-              <p>Nothing matches your filters</p>
-            )}
+            <p>Loading item shop...</p>
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }
