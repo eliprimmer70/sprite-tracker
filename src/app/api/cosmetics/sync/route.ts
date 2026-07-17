@@ -31,7 +31,7 @@ export async function POST() {
         where: { id: item.id },
       });
 
-      const data = {
+      const baseData = {
         name: item.name ?? "Unknown",
         description: item.description ?? null,
         itemType: type.value ?? "unknown",
@@ -49,19 +49,14 @@ export async function POST() {
         isUnreleased: !intro.text,
       };
 
-      if (existing) {
-        await prisma.cosmeticItem.update({
-          where: { id: item.id },
-          data,
-        });
-        updated++;
-      } else {
-        await prisma.cosmeticItem.create({
-          where: { id: item.id },
-          data,
-        });
-        created++;
-      }
+      await prisma.cosmeticItem.upsert({
+        where: { id: item.id },
+        create: { id: item.id, ...baseData },
+        update: baseData,
+      });
+
+      if (existing) updated++;
+      else created++;
     }
 
     return NextResponse.json({ created, updated, total: items.length });

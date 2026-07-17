@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import type { Prisma } from "@prisma/client";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -11,7 +12,7 @@ export async function GET(req: NextRequest) {
   const page = parseInt(searchParams.get("page") || "1");
   const limit = Math.min(parseInt(searchParams.get("limit") || "48"), 100);
 
-  const where: Record<string, unknown> = {};
+  const where: Prisma.CosmeticItemWhereInput = {};
 
   if (query) {
     where.name = { contains: query, mode: "insensitive" };
@@ -21,7 +22,7 @@ export async function GET(req: NextRequest) {
   if (unreleased === "true") where.isUnreleased = true;
   if (unreleased === "false") where.isUnreleased = false;
 
-  const orderBy: Record<string, string> =
+  const orderBy: Prisma.CosmeticItemOrderByWithRelationInput =
     sort === "name"
       ? { name: "asc" }
       : sort === "recent"
@@ -32,14 +33,12 @@ export async function GET(req: NextRequest) {
 
   const [items, total] = await Promise.all([
     prisma.cosmeticItem.findMany({
-      where: where as Parameters<typeof prisma.cosmeticItem.findMany>[0]["where"],
-      orderBy: orderBy as Parameters<typeof prisma.cosmeticItem.findMany>[0]["orderBy"],
+      where,
+      orderBy,
       skip: (page - 1) * limit,
       take: limit,
     }),
-    prisma.cosmeticItem.count({
-      where: where as Parameters<typeof prisma.cosmeticItem.count>[0]["where"],
-    }),
+    prisma.cosmeticItem.count({ where }),
   ]);
 
   const types = await prisma.cosmeticItem.groupBy({
