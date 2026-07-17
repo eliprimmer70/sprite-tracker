@@ -16,7 +16,15 @@ interface ShopItem {
   type: string;
   layoutId: string;
   tileSize: string;
+  bgColor?: string;
 }
+
+const VBuckIcon = ({ className = "h-3.5 w-3.5" }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none">
+    <circle cx="12" cy="12" r="10" fill="#ffd700" />
+    <text x="12" y="16" textAnchor="middle" fill="#000" fontSize="12" fontWeight="bold">V</text>
+  </svg>
+);
 
 interface ShopSection {
   name: string;
@@ -28,13 +36,75 @@ interface ShopItemModalProps {
   onClose: () => void;
 }
 
+function ShopCard({ item, onClick }: { item: ShopItem; onClick: () => void }) {
+  const [imgSrc, setImgSrc] = useState(item.renderImage || item.icon);
+  const onSale = item.finalPrice < item.regularPrice;
+  const discount = onSale
+    ? Math.round(((item.regularPrice - item.finalPrice) / item.regularPrice) * 100)
+    : 0;
+
+  return (
+    <button
+      onClick={onClick}
+      className="group relative overflow-hidden rounded-2xl border border-white/10 text-left outline-none transition-all hover:border-white/20 focus-visible:ring-2 focus-visible:ring-[#9147ff]"
+      style={{ aspectRatio: "1 / 0.76" }}
+    >
+      {/* Background image */}
+      <div
+        className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110"
+        style={{ backgroundImage: `url(${imgSrc})` }}
+      />
+
+      {/* Gradient overlay */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background: item.bgColor
+            ? `linear-gradient(0deg, ${item.bgColor} 0%, ${item.bgColor}00 100%)`
+            : "linear-gradient(0deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%)",
+        }}
+      />
+
+      {/* Hidden img for onError fallback */}
+      <img
+        src={imgSrc}
+        alt=""
+        className="hidden"
+        onError={() => {
+          if (imgSrc !== item.icon) setImgSrc(item.icon);
+        }}
+      />
+
+      {/* Discount badge */}
+      {onSale && (
+        <div className="absolute left-2 top-2 z-10 -skew-x-12 rounded-sm bg-white px-2.5 py-1 shadow-lg">
+          <span className="inline-block skew-x-12 text-xs font-black uppercase text-black">
+            {discount}% off
+          </span>
+        </div>
+      )}
+
+      {/* Bottom content */}
+      <div className="absolute bottom-0 left-0 right-0 z-10 p-3 lg:p-4">
+        <p className="text-sm font-bold leading-tight text-white drop-shadow-lg lg:text-lg">
+          {item.name}
+        </p>
+        <div className="mt-1 flex items-center gap-1.5">
+          <span className="text-sm font-bold text-white drop-shadow-lg">
+            {onSale ? item.finalPrice : item.regularPrice}
+          </span>
+          <VBuckIcon className="h-3.5 w-3.5 drop-shadow-lg" />
+        </div>
+      </div>
+    </button>
+  );
+}
+
 function ShopItemModal({ item, onClose }: ShopItemModalProps) {
   if (!item) return null;
   const onSale = item.finalPrice < item.regularPrice;
   const discount = onSale
-    ? Math.round(
-        ((item.regularPrice - item.finalPrice) / item.regularPrice) * 100
-      )
+    ? Math.round(((item.regularPrice - item.finalPrice) / item.regularPrice) * 100)
     : 0;
 
   return (
@@ -46,49 +116,45 @@ function ShopItemModal({ item, onClose }: ShopItemModalProps) {
         className="w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-[#14141a] shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="relative aspect-square bg-gradient-to-b from-white/10 to-transparent">
-          <img
-            src={item.renderImage || item.icon}
-            alt={item.name}
-            className="h-full w-full object-contain p-8"
+        <div
+          className="relative aspect-square bg-cover bg-center"
+          style={{
+            backgroundImage: `url(${item.renderImage || item.icon})`,
+          }}
+        >
+          <div
+            className="absolute inset-0"
+            style={{
+              background: item.bgColor
+                ? `linear-gradient(0deg, ${item.bgColor} 0%, ${item.bgColor}00 100%)`
+                : "linear-gradient(0deg, rgba(0,0,0,0.5) 0%, transparent 100%)",
+            }}
           />
           {onSale && (
-            <div className="absolute left-4 top-4 rounded-full bg-red-500 px-3 py-1 text-sm font-bold text-white shadow-lg">
-              -{discount}%
+            <div className="absolute left-4 top-4 -skew-x-12 rounded-sm bg-white px-3 py-1.5 shadow-lg">
+              <span className="inline-block skew-x-12 text-sm font-black uppercase text-black">
+                {discount}% off
+              </span>
             </div>
           )}
+          <div className="absolute bottom-0 left-0 right-0 p-6">
+            <p className="text-lg font-bold text-white drop-shadow-lg">{item.type}</p>
+          </div>
         </div>
         <div className="p-6">
-          <div className="mb-1 flex items-center gap-2">
-            <span className="rounded bg-white/10 px-2 py-0.5 text-xs text-white/60">
-              {item.type}
+          <h3 className="text-xl font-bold">{item.name}</h3>
+          <div className="mt-3 flex items-center gap-2">
+            <span className="text-2xl font-bold">
+              {onSale ? item.finalPrice : item.regularPrice}
             </span>
-            <span className="rounded bg-white/10 px-2 py-0.5 text-xs capitalize text-white/60">
-              {item.rarity || item.section}
-            </span>
-          </div>
-          <h3 className="mt-2 text-xl font-bold">{item.name}</h3>
-          <div className="mt-4 flex items-center gap-2">
-            {onSale ? (
-              <>
-                <span className="text-2xl font-bold text-white">
-                  {item.finalPrice}
-                </span>
-                <span className="text-lg text-[#6b7280] line-through">
-                  {item.regularPrice}
-                </span>
-              </>
-            ) : (
-              <span className="text-2xl font-bold text-white">
+            <VBuckIcon className="h-5 w-5" />
+            {onSale && (
+              <span className="text-lg text-white/40 line-through">
                 {item.regularPrice}
               </span>
             )}
-            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="10" fill="#ffd700" />
-              <text x="12" y="16" textAnchor="middle" fill="#000" fontSize="12" fontWeight="bold">V</text>
-            </svg>
           </div>
-          <p className="mt-1 text-sm text-[#6b7280]">{item.section}</p>
+          <p className="mt-1 text-sm text-white/40">{item.section}</p>
         </div>
       </div>
     </div>
@@ -297,9 +363,6 @@ export default function HomePage() {
 
         {/* Shop sections */}
         {activeSections.map((section) => {
-          const [firstItem] = section.items;
-          const hasItemsWithRender = section.items.some((i) => i.renderImage);
-
           return (
             <section key={section.name} className="mb-12">
               <div className="mb-5">
@@ -312,79 +375,11 @@ export default function HomePage() {
                   const discount = discountPct(item);
 
                   return (
-                    <button
+                    <ShopCard
                       key={`${item.name}-${i}`}
+                      item={item}
                       onClick={() => setSelectedItem(item)}
-                      className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] text-left transition-all hover:border-white/20 hover:bg-white/[0.06]"
-                    >
-                      <div className="relative aspect-square overflow-hidden bg-gradient-to-b from-white/5 to-transparent">
-                        {hasItemsWithRender && item.renderImage ? (
-                          <img
-                            src={item.renderImage}
-                            alt={item.name}
-                            className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
-                            loading="lazy"
-                            onError={(e) => {
-                              const t = e.target as HTMLImageElement;
-                              t.style.display = "none";
-                              const p = t.parentElement!;
-                              const d = document.createElement("div");
-                              d.className = "flex h-full items-center justify-center p-6";
-                              const img = document.createElement("img");
-                              img.src = item.icon;
-                              img.className = "h-full w-full object-contain";
-                              d.appendChild(img);
-                              p.prepend(d);
-                            }}
-                          />
-                        ) : (
-                          <div className="flex h-full items-center justify-center p-6">
-                            <img
-                              src={item.icon}
-                              alt={item.name}
-                              className="h-full w-full object-contain transition-transform duration-700 group-hover:scale-110"
-                              loading="lazy"
-                            />
-                          </div>
-                        )}
-
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-
-                        {onSale && (
-                          <div className="absolute left-2 top-2 -skew-x-[10deg] rounded-sm bg-white px-2.5 py-1 text-xs font-black text-black shadow-lg">
-                            <span className="inline-block skew-x-[10deg] uppercase">
-                              -{discount}%
-                            </span>
-                          </div>
-                        )}
-
-                        <div className="absolute bottom-0 left-0 right-0 p-3">
-                          <p className="text-sm font-bold leading-tight text-white drop-shadow-lg">
-                            {item.name}
-                          </p>
-                          <div className="mt-1 flex items-center gap-1.5">
-                            {onSale ? (
-                              <>
-                                <span className="text-sm font-bold text-white drop-shadow-lg">
-                                  {item.finalPrice}
-                                </span>
-                                <span className="text-xs text-white/50 line-through">
-                                  {item.regularPrice}
-                                </span>
-                              </>
-                            ) : (
-                              <span className="text-sm font-bold text-white drop-shadow-lg">
-                                {item.regularPrice}
-                              </span>
-                            )}
-                            <svg className="h-3.5 w-3.5 drop-shadow-lg" viewBox="0 0 24 24" fill="none">
-                              <circle cx="12" cy="12" r="10" fill="#ffd700" />
-                              <text x="12" y="16" textAnchor="middle" fill="#000" fontSize="12" fontWeight="bold">V</text>
-                            </svg>
-                          </div>
-                        </div>
-                      </div>
-                    </button>
+                    />
                   );
                 })}
               </div>

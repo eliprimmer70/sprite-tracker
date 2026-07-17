@@ -11,7 +11,7 @@ interface ShopItemEntry {
   type: string;
   layoutId: string;
   tileSize: string;
-  colors: { color1?: string; color3?: string; textBackgroundColor?: string };
+  bgColor?: string;
 }
 
 export async function GET() {
@@ -67,6 +67,10 @@ export async function GET() {
         const name = item.name;
         const icon = item.images?.icon;
         if (name) {
+          const bgColor = colors?.textBackgroundColor
+            ? `#${colors.textBackgroundColor.replace('#', '')}`
+            : undefined;
+
           const entry: ShopItemEntry = {
             name,
             icon: icon ?? "",
@@ -79,7 +83,7 @@ export async function GET() {
             type: item.type?.displayValue ?? "",
             layoutId: layout.id ?? "",
             tileSize: e.tileSize ?? "Size_1_x_1",
-            colors,
+            bgColor,
           };
           const existing = sectionMap.get(sectionName) ?? [];
           existing.push(entry);
