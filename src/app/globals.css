@@ -9,6 +9,9 @@
   --accent-hover: #a855f7;
   --border: #1e1e2d;
   --muted: #6b7280;
+  --fortnite-blue: #4a3aff;
+  --fortnite-purple: #9147ff;
+  --fortnite-cyan: #00d4ff;
 }
 
 * {
@@ -20,4 +23,89 @@ body {
   background: var(--background);
   font-family: system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes float-delayed {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(145, 71, 255, 0.2); }
+  50% { box-shadow: 0 0 40px rgba(145, 71, 255, 0.4); }
+}
+
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes carousel {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-float { animation: float 3s ease-in-out infinite; }
+.animate-float-delayed { animation: float-delayed 3.5s ease-in-out infinite 0.5s; }
+.animate-shimmer { animation: shimmer 2s linear infinite; background-size: 200% 100%; }
+.animate-fadeInUp { animation: fadeInUp 0.5s ease-out forwards; }
+.animate-pulse-glow { animation: pulse-glow 3s ease-in-out infinite; }
+.animate-gradient { animation: gradient-shift 6s ease infinite; background-size: 200% 200%; }
+.animate-carousel { animation: carousel 30s linear infinite; }
+.animate-spin-slow { animation: spin-slow 8s linear infinite; }
+
+.glass {
+  background: rgba(19, 19, 26, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-hover:hover {
+  background: rgba(26, 26, 37, 0.8);
+  border-color: rgba(145, 71, 255, 0.3);
+}
+
+@keyframes slide-in {
+  from { opacity: 0; transform: translateX(-10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.grid-item-enter {
+  animation: slide-in 0.3s ease-out forwards;
+}
+
+.grid-item-enter:nth-child(2n) { animation-delay: 0.05s; }
+.grid-item-enter:nth-child(3n) { animation-delay: 0.1s; }
+.grid-item-enter:nth-child(4n) { animation-delay: 0.15s; }
+.grid-item-enter:nth-child(5n) { animation-delay: 0.2s; }
+
+@keyframes count-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.stat-enter {
+  animation: count-up 0.6s ease-out forwards;
 }

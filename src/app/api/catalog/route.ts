@@ -1,15 +1,9 @@
 import { NextResponse } from "next/server";
 import { fetchCosmeticCatalog } from "@/lib/fortnite-api";
-import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@prisma/client";
 
 export async function POST() {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
-
   try {
     const catalog = await fetchCosmeticCatalog();
 
