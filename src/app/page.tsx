@@ -5,12 +5,20 @@ import { useRouter } from "next/navigation";
 
 type Mode = "login" | "signup";
 
-interface Cosmetic {
+interface ShopEntry {
   name: string;
   icon: string;
-  renderImage?: string;
+  renderImage: string;
+  regularPrice: number;
+  finalPrice: number;
+  section: string;
   rarity: string;
   type: string;
+}
+
+interface ShopSection {
+  name: string;
+  items: ShopEntry[];
 }
 
 export default function HomePage() {
@@ -20,49 +28,67 @@ export default function HomePage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [featured, setFeatured] = useState<Cosmetic[]>([]);
-  const [heroImage, setHeroImage] = useState("");
+  const [sections, setSections] = useState<ShopSection[]>([]);
+  const [heroItem, setHeroItem] = useState<ShopEntry | null>(null);
 
   useEffect(() => {
     fetch("https://fortnite-api.com/v2/shop")
       .then((r) => r.json())
       .then((d) => {
-        const cosmetics: Cosmetic[] = [];
         const entries = d.data?.entries ?? [];
+        const sectionMap = new Map<string, ShopEntry[]>();
 
         for (const e of entries) {
-          const brItems = e.brItems ?? e.items ?? [];
-          const nda = e.newDisplayAsset;
-          const renderUrl = nda?.renderImages?.[0]?.image;
+          const items = e.brItems ?? e.items ?? [];
+          const layout = e.layout ?? {};
+          const sectionName = layout.name ?? "Featured";
+          const colors = e.colors ?? {};
+          const render =
+            e.newDisplayAsset?.renderImages?.[0]?.image ?? "";
+          const regular = e.regularPrice ?? 0;
+          const final = e.finalPrice ?? 0;
 
-          for (const i of brItems) {
-            const name = i.name;
-            const icon = i.images?.icon;
+          for (const item of items) {
+            const name = item.name;
+            const icon = item.images?.icon;
             if (name && icon) {
-              cosmetics.push({
+              const entry: ShopEntry = {
                 name,
                 icon,
-                renderImage: renderUrl,
-                rarity: i.rarity?.displayValue ?? i.rarity?.value ?? "",
-                type: i.type?.displayValue ?? "",
-              });
-              if (cosmetics.length >= 8) break;
+                renderImage: render,
+                regularPrice: regular,
+                finalPrice: final,
+                section: sectionName,
+                rarity:
+                  item.rarity?.displayValue ?? item.rarity?.value ?? "",
+                type: item.type?.displayValue ?? "",
+              };
+              const existing = sectionMap.get(sectionName) ?? [];
+              existing.push(entry);
+              sectionMap.set(sectionName, existing);
             }
           }
-          if (cosmetics.length >= 8) break;
         }
 
-        setFeatured(cosmetics);
-        if (cosmetics[0]?.renderImage) {
-          setHeroImage(cosmetics[0].renderImage);
+        const result: ShopSection[] = [];
+        for (const [name, items] of sectionMap) {
+          result.push({ name, items });
+        }
+        setSections(result);
+
+        // Find an outfit for hero
+        for (const [, items] of sectionMap) {
+          const outfit = items.find((i) => i.type === "Outfit" && i.renderImage);
+          if (outfit) {
+            setHeroItem(outfit);
+            break;
+          }
         }
       })
       .catch(() => {});
   }, []);
 
-  const carouselItems = featured.length > 0
-    ? [...featured, ...featured]
-    : [];
+  const totalShopItems = sections.reduce((s, sec) => s + sec.items.length, 0);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -88,197 +114,254 @@ export default function HomePage() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-[#0a0a0f]">
-      {/* Hero Background */}
-      <div className="relative min-h-screen">
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a0f] via-[#0a0a0f]/80 to-[#0a0a0f]" />
-        {heroImage && (
-          <div
-            className="absolute inset-0 bg-cover bg-center opacity-30"
-            style={{ backgroundImage: `url(${heroImage})` }}
-          />
-        )}
+    <div className="relative min-h-screen bg-[#0a0a0f]">
+      {/* Hero */}
+      <div className="relative min-h-screen overflow-hidden">
+        {/* Background */}
+        <div className="absolute inset-0">
+          {heroItem?.renderImage ? (
+            <div
+              className="absolute inset-0 bg-cover bg-center"
+              style={{ backgroundImage: `url(${heroItem.renderImage})` }}
+            />
+          ) : null}
+          <div className="absolute inset-0 bg-gradient-to-r from-[#0a0a0f] via-[#0a0a0f]/70 to-[#0a0a0f]/50" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0f] via-transparent to-transparent" />
+        </div>
 
-        {/* Gradient overlays */}
         <div className="absolute left-0 top-0 h-96 w-96 rounded-full bg-[#4a3aff]/20 blur-[120px]" />
-        <div className="absolute right-0 top-1/3 h-80 w-80 rounded-full bg-[#9147ff]/15 blur-[100px]" />
-        <div className="absolute bottom-1/4 left-1/2 h-64 w-64 rounded-full bg-[#00d4ff]/10 blur-[80px]" />
+        <div className="absolute right-0 top-1/3 h-80 w-80 rounded-full bg-[#9147ff]/10 blur-[100px]" />
 
-        {/* Navigation bar */}
+        {/* Nav */}
         <nav className="relative z-10 flex items-center justify-between px-6 py-5 md:px-12">
           <div className="flex items-center gap-3">
             <span className="text-2xl">🎯</span>
-            <span className="text-xl font-bold tracking-tight">Sprite Tracker</span>
+            <span className="text-lg font-bold tracking-tight md:text-xl">
+              Sprite Tracker
+            </span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <button
-              onClick={() => setMode("login")}
-              className="rounded-lg px-5 py-2 text-sm font-medium text-white/70 transition-colors hover:text-white"
+              onClick={() => { setMode("login"); setError(""); }}
+              className="rounded-lg px-4 py-2 text-sm font-medium text-white/60 transition-colors hover:text-white"
             >
-              Log in
+              Log In
             </button>
             <button
-              onClick={() => setMode("signup")}
-              className="rounded-lg bg-[#9147ff] px-5 py-2 text-sm font-medium text-white shadow-lg shadow-purple-500/20 transition-all hover:bg-[#a855f7]"
+              onClick={() => { setMode("signup"); setError(""); }}
+              className="rounded-lg bg-[#9147ff] px-4 py-2 text-sm font-medium text-white shadow-lg shadow-purple-500/20 transition-all hover:bg-[#a855f7]"
             >
-              Sign up
+              Sign Up
             </button>
           </div>
         </nav>
 
         {/* Hero Content */}
-        <div className="relative z-10 mx-auto mt-16 flex max-w-7xl flex-col items-center px-6 text-center md:mt-24 md:px-12">
-          <div className="max-w-3xl">
+        <div className="relative z-10 mx-auto mt-20 flex max-w-7xl flex-col items-start px-6 md:mt-32 md:px-12">
+          <div className="max-w-xl">
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#9147ff]/30 bg-[#9147ff]/10 px-4 py-1.5 text-sm text-[#a855f7]">
-              <span className="h-2 w-2 rounded-full bg-[#a855f7] animate-pulse" />
+              <span className="h-2 w-2 animate-pulse rounded-full bg-[#a855f7]" />
               Free Fortnite Collection Tracker
             </div>
             <h1 className="text-5xl font-bold leading-tight tracking-tight md:text-7xl">
               Track Your{" "}
               <span className="bg-gradient-to-r from-[#9147ff] via-[#a855f7] to-[#00d4ff] bg-clip-text text-transparent">
-                Fortnite Locker
+                Locker
               </span>
             </h1>
-            <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-[#9ca3af]">
-              Browse every cosmetic in the game, mark what you own,
-              and see exactly what you&apos;re missing.
+            <p className="mt-4 text-lg leading-relaxed text-[#9ca3af]">
+              Browse every cosmetic, mark what you own, and see
+              what you&apos;re still missing.
             </p>
-          </div>
 
-          {/* Auth Card */}
-          <div className="mt-10 w-full max-w-sm rounded-2xl border border-white/10 bg-white/5 p-8 backdrop-blur-xl">
-            <div className="mb-6 flex rounded-lg border border-white/10 bg-white/5 p-1">
-              <button
-                onClick={() => { setMode("login"); setError(""); }}
-                className={`flex-1 rounded-md py-2 text-sm font-medium transition-all ${
-                  mode === "login"
-                    ? "bg-[#9147ff] text-white shadow-lg"
-                    : "text-[#6b7280] hover:text-white"
-                }`}
-              >
-                Log In
-              </button>
-              <button
-                onClick={() => { setMode("signup"); setError(""); }}
-                className={`flex-1 rounded-md py-2 text-sm font-medium transition-all ${
-                  mode === "signup"
-                    ? "bg-[#9147ff] text-white shadow-lg"
-                    : "text-[#6b7280] hover:text-white"
-                }`}
-              >
-                Sign Up
-              </button>
+            {/* Auth card inline */}
+            <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur-xl md:max-w-sm">
+              <div className="mb-4 flex rounded-lg border border-white/10 bg-white/5 p-1">
+                <button
+                  onClick={() => { setMode("login"); setError(""); }}
+                  className={`flex-1 rounded-md py-2 text-sm font-medium transition-all ${
+                    mode === "login"
+                      ? "bg-[#9147ff] text-white shadow-lg"
+                      : "text-[#6b7280] hover:text-white"
+                  }`}
+                >
+                  Log In
+                </button>
+                <button
+                  onClick={() => { setMode("signup"); setError(""); }}
+                  className={`flex-1 rounded-md py-2 text-sm font-medium transition-all ${
+                    mode === "signup"
+                      ? "bg-[#9147ff] text-white shadow-lg"
+                      : "text-[#6b7280] hover:text-white"
+                  }`}
+                >
+                  Sign Up
+                </button>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-3">
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition-all placeholder:text-[#6b7280] focus:border-[#9147ff]"
+                  placeholder="Username"
+                  minLength={3}
+                  maxLength={24}
+                  required
+                />
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition-all placeholder:text-[#6b7280] focus:border-[#9147ff]"
+                  placeholder="Password"
+                  minLength={6}
+                  required
+                />
+                {error && <p className="text-sm text-red-400">{error}</p>}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full rounded-lg bg-[#9147ff] px-4 py-3 font-semibold text-white shadow-lg shadow-purple-500/20 transition-all hover:bg-[#a855f7] active:scale-[0.98] disabled:opacity-60"
+                >
+                  {loading
+                    ? "Loading..."
+                    : mode === "login"
+                      ? "Log In"
+                      : "Create Account"}
+                </button>
+              </form>
             </div>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition-all placeholder:text-[#6b7280] focus:border-[#9147ff]"
-                placeholder="Username"
-                minLength={3}
-                maxLength={24}
-                required
-              />
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition-all placeholder:text-[#6b7280] focus:border-[#9147ff]"
-                placeholder="Password"
-                minLength={6}
-                required
-              />
-
-              {error && (
-                <p className="text-sm text-red-400">{error}</p>
-              )}
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full rounded-lg bg-[#9147ff] px-4 py-3 font-semibold text-white shadow-lg shadow-purple-500/20 transition-all hover:bg-[#a855f7] active:scale-[0.98] disabled:opacity-60"
-              >
-                {loading ? "Loading..." : mode === "login" ? "Log In" : "Create Account"}
-              </button>
-            </form>
           </div>
         </div>
-
-        {/* Carousel */}
-        {carouselItems.length > 0 && (
-          <div className="absolute bottom-0 left-0 right-0 overflow-hidden border-t border-white/5 py-4">
-            <div className="flex animate-carousel gap-6">
-              {carouselItems.map((item, i) => (
-                <div
-                  key={i}
-                  className="group flex w-24 shrink-0 cursor-pointer flex-col items-center gap-2 transition-all hover:scale-110"
-                >
-                  <div className="flex aspect-square w-16 items-center justify-center rounded-2xl bg-white/5 p-2 ring-1 ring-white/10 transition-all group-hover:bg-white/10 group-hover:ring-[#9147ff]/50">
-                    <img
-                      src={item.icon}
-                      alt={item.name}
-                      className="h-full w-full object-contain drop-shadow-lg"
-                    />
-                  </div>
-                  <span className="max-w-[6rem] truncate text-center text-[11px] text-white/50">
-                    {item.name}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Features Section */}
-      <div className="relative border-t border-white/5 bg-[#0d0d15] py-24">
+      {/* Live Item Shop */}
+      <div className="relative border-t border-white/5 bg-[#0d0d15] py-20">
         <div className="mx-auto max-w-7xl px-6 md:px-12">
-          <div className="mb-16 text-center">
-            <h2 className="text-3xl font-bold md:text-4xl">
-              Everything you need to track your collection
-            </h2>
-            <p className="mt-4 text-[#9ca3af]">
-              Simple, fast, and built for Fortnite fans.
-            </p>
+          <div className="mb-12 flex items-center justify-between">
+            <div>
+              <h2 className="text-3xl font-bold">Item Shop</h2>
+              <p className="mt-2 text-[#6b7280]">
+                {totalShopItems} items currently available
+              </p>
+            </div>
+            <span className="rounded-full border border-green-500/30 bg-green-500/10 px-3 py-1 text-xs text-green-400">
+              LIVE
+            </span>
           </div>
 
+          {sections.map((section) => (
+            <div key={section.name} className="mb-14">
+              <h3 className="mb-5 text-lg font-semibold text-white/80">
+                {section.name}
+              </h3>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                {section.items.slice(0, 12).map((item, i) => {
+                  const onSale = item.finalPrice < item.regularPrice;
+                  const discount = onSale
+                    ? Math.round(
+                        ((item.regularPrice - item.finalPrice) /
+                          item.regularPrice) *
+                          100
+                      )
+                    : 0;
+
+                  return (
+                    <div
+                      key={`${item.name}-${i}`}
+                      className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] transition-all hover:border-white/20 hover:bg-white/[0.06]"
+                    >
+                      {/* Image */}
+                      <div className="relative aspect-square overflow-hidden bg-gradient-to-b from-white/5 to-transparent">
+                        <img
+                          src={item.renderImage || item.icon}
+                          alt={item.name}
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        />
+
+                        {/* Discount badge */}
+                        {onSale && (
+                          <div className="absolute left-2 top-2 rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white shadow-lg">
+                            -{discount}%
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Info */}
+                      <div className="p-3">
+                        <p className="truncate text-sm font-medium">
+                          {item.name}
+                        </p>
+                        <p className="mt-0.5 text-xs text-[#6b7280]">
+                          {item.type}
+                        </p>
+                        <div className="mt-2 flex items-center gap-2">
+                          {onSale ? (
+                            <>
+                              <span className="text-sm font-bold text-white">
+                                {item.finalPrice}
+                              </span>
+                              <span className="text-xs text-[#6b7280] line-through">
+                                {item.regularPrice}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-sm font-bold text-white">
+                              {item.regularPrice}
+                            </span>
+                          )}
+                          <span className="text-[10px] text-yellow-400">🪙</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Features */}
+      <div className="border-t border-white/5 bg-[#0a0a0f] py-20">
+        <div className="mx-auto max-w-7xl px-6 md:px-12">
+          <div className="mb-14 text-center">
+            <h2 className="text-3xl font-bold">How it works</h2>
+            <p className="mt-3 text-[#6b7280]">
+              Three simple steps to track your collection
+            </p>
+          </div>
           <div className="grid gap-6 md:grid-cols-3">
             {[
               {
-                icon: "🎯",
-                title: "Full Catalog",
-                desc: "Every cosmetic from every season, updated automatically.",
-                gradient: "from-[#9147ff]/20 to-transparent",
+                step: "01",
+                title: "Create Account",
+                desc: "Sign up in seconds. No Epic Games login required.",
               },
               {
-                icon: "✅",
-                title: "One-Click Tracking",
-                desc: "Tap any sprite to mark it owned. No manual lists.",
-                gradient: "from-[#00d4ff]/20 to-transparent",
+                step: "02",
+                title: "Browse Cosmetics",
+                desc: "Explore the full catalog of every Fortnite item ever released.",
               },
               {
-                icon: "📊",
-                title: "Progress Stats",
-                desc: "See your completion percentage and what you're missing.",
-                gradient: "from-[#4a3aff]/20 to-transparent",
+                step: "03",
+                title: "Track Progress",
+                desc: "Tap to mark owned. See your completion % instantly.",
               },
             ].map((f) => (
               <div
-                key={f.title}
-                className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-8 transition-all hover:border-white/20 hover:bg-white/[0.06]"
+                key={f.step}
+                className="group rounded-2xl border border-white/10 bg-white/[0.02] p-8 transition-all hover:border-white/20 hover:bg-white/[0.04]"
               >
-                <div
-                  className={`absolute inset-0 bg-gradient-to-b ${f.gradient} opacity-0 transition-opacity group-hover:opacity-100`}
-                />
-                <div className="relative">
-                  <span className="mb-4 block text-3xl">{f.icon}</span>
-                  <h3 className="mb-2 text-lg font-semibold">{f.title}</h3>
-                  <p className="text-sm leading-relaxed text-[#6b7280]">
-                    {f.desc}
-                  </p>
-                </div>
+                <span className="mb-4 block text-4xl font-black text-[#9147ff] opacity-40">
+                  {f.step}
+                </span>
+                <h3 className="mb-2 text-lg font-semibold">{f.title}</h3>
+                <p className="text-sm leading-relaxed text-[#6b7280]">
+                  {f.desc}
+                </p>
               </div>
             ))}
           </div>
@@ -287,7 +370,7 @@ export default function HomePage() {
 
       {/* Footer */}
       <footer className="border-t border-white/5 py-8 text-center text-sm text-[#6b7280]">
-        <p>Sprite Tracker &middot; Not affiliated with Epic Games</p>
+        <p>Sprite Tracker &middot; Not affiliated with Epic Games &middot; Data from Fortnite-API.com</p>
       </footer>
     </div>
   );
