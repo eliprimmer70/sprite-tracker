@@ -43,8 +43,10 @@ export async function POST() {
         introductionChapter: intro.chapter ?? null,
         introductionSeason: intro.season ?? null,
         introductionText: intro.text ?? null,
-        iconUrl: images.icon ?? null,
+        iconUrl: images.icon ?? images.smallIcon ?? null,
         smallIconUrl: images.smallIcon ?? null,
+        featuredUrl: images.featured ?? null,
+        showcaseVideo: item.showcaseVideo ?? null,
         addedToApi: item.added ? new Date(item.added) : null,
         isUnreleased: !intro.text,
       };

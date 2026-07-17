@@ -32,6 +32,8 @@ model CosmeticItem {
   introductionText    String?
   iconUrl       String?
   smallIconUrl  String?
+  featuredUrl   String?
+  showcaseVideo String?
   addedToApi    DateTime?
   isUnreleased  Boolean  @default(false)
   lastShopAppearance DateTime?

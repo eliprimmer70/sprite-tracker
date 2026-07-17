@@ -2,23 +2,60 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { rarityGradient, rarityStyle, videoThumb } from "@/lib/rarity";
+import { ArrowLeft } from "lucide-react";
 
 interface CosmeticItem {
   id: string;
   name: string;
   itemType: string;
   itemTypeDisplay: string | null;
+  rarity: string | null;
+  rarityDisplay: string | null;
   iconUrl: string | null;
+  featuredUrl?: string | null;
+  showcaseVideo?: string | null;
   isUnreleased: boolean;
-  addedToApi: string | null;
 }
 
-const TYPE_ICONS: Record<string, string> = {
-  outfit: "👕", backpack: "🎒", pickaxe: "⛏️", emote: "💃",
-  glider: "🪂", wrap: "🎨", spray: "🎭", emoji: "😄",
-  loading_screen: "🖼️", music_pack: "🎵", contrail: "✨",
-  pet: "🐾", jamtrack: "🎸", shoe: "👟",
-};
+function Card({ item }: { item: CosmeticItem }) {
+  const rs = rarityStyle(item.rarity);
+  const thumb = videoThumb(item.showcaseVideo);
+  const isEmote = item.itemType === "emote" || item.itemType === "dance";
+  const cover = !!(isEmote && thumb);
+  const src = cover ? thumb! : item.featuredUrl || item.iconUrl || "";
+
+  return (
+    <Link href={`/item/${item.id}`} className="card">
+      <div className={`card-media${cover ? " cover" : ""}`}>
+        {src ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={src} alt={item.name} loading="lazy" />
+        ) : null}
+      </div>
+      <div className="card-shade" style={{ background: rarityGradient(item.rarity) }} />
+      <div
+        className="card-shade"
+        style={{ background: "linear-gradient(0deg, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0) 42%)" }}
+      />
+      {item.rarityDisplay && (
+        <span className="badge rarity-tag" style={{ background: rs.hex }}>
+          <span>{rs.label}</span>
+        </span>
+      )}
+      {item.isUnreleased && (
+        <span className="badge leak" style={{ left: "auto", right: "0.5rem" }}>
+          <span>Leak</span>
+        </span>
+      )}
+      {cover && <span className="play-pip" aria-hidden="true">▶</span>}
+      <div className="card-body">
+        <p className="card-title">{item.name}</p>
+        <p className="card-sub">{item.itemTypeDisplay || item.itemType}</p>
+      </div>
+    </Link>
+  );
+}
 
 export default function LeaksPage() {
   const [unreleased, setUnreleased] = useState<CosmeticItem[]>([]);
@@ -37,107 +74,51 @@ export default function LeaksPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white">
-      <div className="sticky top-0 z-40 border-b border-white/[0.06] bg-[#0a0a0f]/90 backdrop-blur-2xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 md:px-8">
-          <Link href="/" className="flex items-center gap-2.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#3b6bff] text-sm font-bold shadow-lg shadow-[#3b6bff]/20">
-              I
-            </span>
-            <span className="text-base font-semibold tracking-tight">Leaks</span>
+    <div>
+      <header className="topbar">
+        <div className="shell topbar-inner">
+          <Link href="/" className="brand">
+            <span className="brand-mark">SL</span>
+            <span>Sprite Lookup</span>
           </Link>
-          <Link href="/" className="text-sm text-white/40 transition-colors hover:text-white/60">
-            ← Back
+          <Link href="/" className="btn">
+            <ArrowLeft size={14} /> Catalog
           </Link>
         </div>
-      </div>
+      </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-8 md:px-8">
+      <main className="shell" style={{ paddingTop: "1.5rem", paddingBottom: "2rem" }}>
         {loading ? (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="animate-pulse rounded-xl bg-white/[0.04]" style={{ aspectRatio: "4/3" }} />
-            ))}
-          </div>
+          <div className="empty">Loading…</div>
         ) : (
           <>
-            {/* Unreleased */}
-            <section className="mb-14">
-              <div className="mb-5 flex items-center gap-3">
-                <h2 className="text-lg font-semibold tracking-tight">Unreleased / Leaked</h2>
-                <span className="rounded-md bg-yellow-500/15 px-2 py-0.5 text-xs font-medium text-yellow-400">
-                  {unreleased.length}
-                </span>
-              </div>
-              {unreleased.length === 0 ? (
-                <p className="text-sm text-white/30">No unreleased items found.</p>
-              ) : (
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-                  {unreleased.map((item) => (
-                    <Link
-                      key={item.id}
-                      href={`/item/${item.id}`}
-                      className="group relative overflow-hidden rounded-xl border border-yellow-500/15 transition-all hover:border-yellow-500/30"
-                      style={{ aspectRatio: "4/3" }}
-                    >
-                      {item.iconUrl && (
-                        <div
-                          className="absolute inset-0 scale-110 bg-cover bg-center opacity-80 transition-all duration-500 group-hover:scale-125 group-hover:opacity-100"
-                          style={{ backgroundImage: `url(${item.iconUrl})` }}
-                        />
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0f] via-[#0a0a0f]/10 to-transparent" />
-                      <div className="absolute left-2 top-2 rounded-md bg-yellow-500/20 px-1.5 py-0.5 text-[10px] font-medium text-yellow-400 backdrop-blur-sm">
-                        LEAK
-                      </div>
-                      <div className="absolute bottom-0 left-0 right-0 border-l-2 border-l-yellow-500/40 p-3">
-                        <p className="text-sm font-medium leading-tight text-white drop-shadow-lg">{item.name}</p>
-                        <p className="mt-0.5 text-xs text-white/50">
-                          {TYPE_ICONS[item.itemType] ?? ""} {item.itemTypeDisplay || item.itemType}
-                        </p>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              )}
+            <section className="hero" style={{ padding: "0 0 1rem" }}>
+              <h1>Leaks</h1>
+              <p>Unreleased &amp; recently added cosmetics scraped from the API.</p>
             </section>
 
-            {/* Recently added */}
             <section>
-              <div className="mb-5 flex items-center gap-3">
-                <h2 className="text-lg font-semibold tracking-tight">Recently Added to API</h2>
-                <span className="rounded-md bg-blue-500/15 px-2 py-0.5 text-xs font-medium text-blue-400">
-                  {recent.length}
-                </span>
+              <div className="section-title">
+                <h2>Unreleased / Leaked</h2>
+                <span className="meta">{unreleased.length}</span>
               </div>
-              {recent.length === 0 ? (
-                <p className="text-sm text-white/30">Nothing recently added.</p>
-              ) : (
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-                  {recent.map((item) => (
-                    <Link
-                      key={item.id}
-                      href={`/item/${item.id}`}
-                      className="group relative overflow-hidden rounded-xl border border-white/[0.06] transition-all hover:border-white/[0.12]"
-                      style={{ aspectRatio: "4/3" }}
-                    >
-                      {item.iconUrl && (
-                        <div
-                          className="absolute inset-0 scale-110 bg-cover bg-center opacity-80 transition-all duration-500 group-hover:scale-125 group-hover:opacity-100"
-                          style={{ backgroundImage: `url(${item.iconUrl})` }}
-                        />
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0f] via-[#0a0a0f]/10 to-transparent" />
-                      <div className="absolute bottom-0 left-0 right-0 border-l-2 border-l-white/10 p-3">
-                        <p className="text-sm font-medium leading-tight text-white drop-shadow-lg">{item.name}</p>
-                        <p className="mt-0.5 text-xs text-white/50">
-                          {TYPE_ICONS[item.itemType] ?? ""} {item.itemTypeDisplay || item.itemType}
-                        </p>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              )}
+              <div className="grid">
+                {unreleased.map((item) => (
+                  <Card key={item.id} item={item} />
+                ))}
+              </div>
+            </section>
+
+            <section style={{ marginTop: "2rem" }}>
+              <div className="section-title">
+                <h2>Recently added</h2>
+                <span className="meta">{recent.length}</span>
+              </div>
+              <div className="grid">
+                {recent.map((item) => (
+                  <Card key={item.id} item={item} />
+                ))}
+              </div>
             </section>
           </>
         )}

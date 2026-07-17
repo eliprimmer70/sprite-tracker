@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { rarityGradient, rarityStyle, videoThumb } from "@/lib/rarity";
+import { Calendar, ShoppingCart, Radio, ArrowLeft } from "lucide-react";
 
 export default async function ItemPage({
   params,
@@ -17,134 +19,235 @@ export default async function ItemPage({
 
   if (!item) notFound();
 
-  const rarityStyles: Record<string, string> = {
-    uncommon: "bg-green-500/10 text-green-400 border-green-500/20",
-    rare: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-    epic: "bg-purple-500/10 text-purple-400 border-purple-500/20",
-    legendary: "bg-orange-500/10 text-orange-400 border-orange-500/20",
-    marvel: "bg-red-500/10 text-red-400 border-red-500/20",
-    dc: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-    icon: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
-    gaminglegends: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
-    starwars: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
-  };
+  const rs = rarityStyle(item.rarity);
+  const art = item.featuredUrl || item.iconUrl || item.smallIconUrl;
+  const isEmote = item.itemType === "emote" || item.itemType === "dance";
+  const thumb = videoThumb(item.showcaseVideo);
+  // emotes look better as the video thumb on the detail art too
+  const artSrc = isEmote && thumb ? thumb : art;
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white selection:bg-[#3b6bff]/30">
-      <div className="sticky top-0 z-40 border-b border-white/[0.06] bg-[#0a0a0f]/90 backdrop-blur-2xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 md:px-8">
-          <Link href="/" className="flex items-center gap-2.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#3b6bff] text-sm font-bold shadow-lg shadow-[#3b6bff]/20">
-              I
-            </span>
-            <span className="text-sm font-medium tracking-tight text-white/60">Item</span>
+    <div>
+      <header className="topbar">
+        <div className="shell topbar-inner">
+          <Link href="/" className="brand">
+            <span className="brand-mark">SL</span>
+            <span>Sprite Lookup</span>
           </Link>
-          <Link href="/" className="text-sm text-white/40 transition-colors hover:text-white/60">← Back</Link>
+          <Link href="/" className="btn">
+            <ArrowLeft size={14} /> Catalog
+          </Link>
         </div>
-      </div>
+      </header>
 
-      <main className="mx-auto max-w-4xl px-4 py-8 md:px-8">
-        <div className="grid gap-8 md:grid-cols-2">
-          {/* Image */}
-          <div className="relative overflow-hidden rounded-2xl border border-white/[0.06]" style={{ aspectRatio: "4/3" }}>
-            {item.iconUrl && (
-              <div
-                className="absolute inset-0 scale-110 bg-cover bg-center opacity-80"
-                style={{ backgroundImage: `url(${item.iconUrl})` }}
-              />
+      <main className="shell" style={{ paddingTop: "1.5rem", paddingBottom: "2.5rem" }}>
+        <div className="detail-grid">
+          <div className="detail-art">
+            {artSrc ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={artSrc} alt={item.name} />
+            ) : (
+              <span className="meta">No image</span>
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0f] via-[#0a0a0f]/10 to-transparent" />
-            {item.isUnreleased && (
-              <div className="absolute left-3 top-3 rounded-md bg-yellow-500/20 px-2 py-1 text-xs font-medium text-yellow-400 backdrop-blur-sm">
-                UNRELEASED
-              </div>
-            )}
+            <div
+              className="detail-shade"
+              style={{ background: rarityGradient(item.rarity) }}
+            />
           </div>
 
-          {/* Info */}
-          <div className="space-y-6">
+          <div style={{ display: "grid", gap: "1rem" }}>
             <div>
-              <div className="mb-3 flex items-center gap-2">
-                {item.rarity && (
-                  <span className={`rounded-md border px-2 py-0.5 text-xs font-medium ${rarityStyles[item.rarity] ?? "bg-white/5 text-white/60 border-white/10"}`}>
-                    {item.rarityDisplay || item.rarity}
+              <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", marginBottom: "0.8rem" }}>
+                {item.rarityDisplay && (
+                  <span
+                    className="badge rarity-tag"
+                    style={{ position: "static", transform: "none" }}
+                  >
+                    <span style={{ transform: "none" }}>{rs.label}</span>
                   </span>
                 )}
-                <span className="rounded-md border border-white/[0.06] bg-white/[0.04] px-2 py-0.5 text-xs text-white/50">
-                  {item.itemTypeDisplay || item.itemType}
+                <span
+                  className="badge"
+                  style={{ position: "static", transform: "none" }}
+                >
+                  <span style={{ transform: "none" }}>
+                    {item.itemTypeDisplay || item.itemType}
+                  </span>
                 </span>
+                {item.isUnreleased && (
+                  <span
+                    className="badge leak"
+                    style={{ position: "static", transform: "none" }}
+                  >
+                    <span style={{ transform: "none" }}>Unreleased</span>
+                  </span>
+                )}
               </div>
-              <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{item.name}</h1>
+              <h1
+                style={{
+                  margin: 0,
+                  fontFamily: "var(--font-now, Oswald), sans-serif",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.01em",
+                  fontSize: "2.1rem",
+                  lineHeight: 1,
+                }}
+              >
+                {item.name}
+              </h1>
               {item.description && (
-                <p className="mt-2 text-sm leading-relaxed text-white/50">{item.description}</p>
+                <p
+                  className="meta"
+                  style={{ marginTop: "0.6rem", lineHeight: 1.55 }}
+                >
+                  {item.description}
+                </p>
               )}
             </div>
 
-            {/* Timeline */}
-            <div className="space-y-4 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5">
-              <h2 className="text-xs font-semibold uppercase tracking-widest text-white/30">Timeline</h2>
-              <div className="space-y-5">
-                <TimelineRow icon="📅" title="First Introduced" subtitle={item.introductionText || "Unknown"} />
-                <TimelineRow
-                  icon="🛒"
-                  title="Last in Shop"
-                  subtitle={
-                    item.lastShopAppearance
+            {item.showcaseVideo && (
+              <div>
+                <div
+                  className="meta"
+                  style={{
+                    fontFamily: "var(--font-now, Oswald), sans-serif",
+                    letterSpacing: "0.1em",
+                    textTransform: "uppercase",
+                    fontSize: "0.72rem",
+                    marginBottom: "0.5rem",
+                  }}
+                >
+                  Showcase
+                </div>
+                <div className="video-embed">
+                  <iframe
+                    src={`https://www.youtube.com/embed/${item.showcaseVideo}`}
+                    title={`${item.name} showcase`}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="panel">
+              <div
+                className="meta"
+                style={{
+                  fontFamily: "var(--font-now, Oswald), sans-serif",
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  fontSize: "0.72rem",
+                }}
+              >
+                Timeline
+              </div>
+              <div className="timeline-row">
+                <div className="timeline-icon"><Calendar size={15} /></div>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: "0.92rem" }}>First introduced</div>
+                  <div className="meta">{item.introductionText || "Unknown"}</div>
+                </div>
+              </div>
+              <div className="timeline-row">
+                <div className="timeline-icon"><ShoppingCart size={15} /></div>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: "0.92rem" }}>Last in shop</div>
+                  <div className="meta">
+                    {item.lastShopAppearance
                       ? new Date(item.lastShopAppearance).toLocaleDateString("en-US", {
-                          weekday: "long", year: "numeric", month: "long", day: "numeric",
+                          weekday: "long",
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
                         })
-                      : "Not yet recorded (tracking started today)"
-                  }
-                  meta={item.lastShopAppearance ? `Appeared ${item.shopAppearances} time${item.shopAppearances !== 1 ? "s" : ""}` : undefined}
-                />
-                <TimelineRow
-                  icon="📡"
-                  title="Added to API"
-                  subtitle={
-                    item.addedToApi
-                      ? new Date(item.addedToApi).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
-                      : "Unknown"
-                  }
-                />
+                      : "Not recorded yet (shop tracking started recently)"}
+                  </div>
+                  {item.lastShopAppearance && (
+                    <div className="meta">
+                      Seen {item.shopAppearances} time{item.shopAppearances !== 1 ? "s" : ""}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="timeline-row">
+                <div className="timeline-icon"><Radio size={15} /></div>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: "0.92rem" }}>Added to API</div>
+                  <div className="meta">
+                    {item.addedToApi
+                      ? new Date(item.addedToApi).toLocaleDateString("en-US", {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        })
+                      : "Unknown"}
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Details */}
-            <div className="space-y-3 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5">
-              <h2 className="text-xs font-semibold uppercase tracking-widest text-white/30">Details</h2>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                {item.set && <DetailRow label="Set" value={item.set} />}
-                {item.series && <DetailRow label="Series" value={item.series} />}
-                <DetailRow label="ID" value={item.id} />
-                <DetailRow label="Type" value={item.itemTypeDisplay || item.itemType} />
+            <div className="panel">
+              <div
+                className="meta"
+                style={{
+                  fontFamily: "var(--font-now, Oswald), sans-serif",
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  fontSize: "0.72rem",
+                  marginBottom: "0.7rem",
+                }}
+              >
+                Details
+              </div>
+              <div className="kv">
+                {item.set && (
+                  <>
+                    <span>Set</span>
+                    <span>{item.set}</span>
+                  </>
+                )}
+                {item.series && (
+                  <>
+                    <span>Series</span>
+                    <span>{item.series}</span>
+                  </>
+                )}
+                <span>Type</span>
+                <span>{item.itemTypeDisplay || item.itemType}</span>
+                <span>ID</span>
+                <span style={{ wordBreak: "break-all" }}>{item.id}</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Shop History */}
         {item.shopHistory.length > 0 && (
-          <div className="mt-10">
-            <h2 className="mb-4 text-base font-semibold tracking-tight">Shop Appearances</h2>
-            <div className="overflow-hidden rounded-2xl border border-white/[0.06]">
-              <table className="w-full text-sm">
+          <div style={{ marginTop: "1.5rem" }}>
+            <div className="section-title">
+              <h2>Shop appearances</h2>
+            </div>
+            <div className="panel" style={{ padding: 0, overflow: "hidden" }}>
+              <table className="table">
                 <thead>
-                  <tr className="border-b border-white/[0.06] bg-white/[0.02]">
-                    <th className="px-4 py-3 text-left font-medium text-white/30">Date</th>
-                    <th className="px-4 py-3 text-left font-medium text-white/30">Section</th>
-                    <th className="px-4 py-3 text-right font-medium text-white/30">Price</th>
+                  <tr>
+                    <th>Date</th>
+                    <th>Section</th>
+                    <th style={{ textAlign: "right" }}>Price</th>
                   </tr>
                 </thead>
                 <tbody>
                   {item.shopHistory.map((entry) => (
-                    <tr key={entry.id} className="border-b border-white/[0.04] transition-colors hover:bg-white/[0.02]">
-                      <td className="px-4 py-3 text-white/80">
-                        {new Date(entry.seenAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    <tr key={entry.id}>
+                      <td>
+                        {new Date(entry.seenAt).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
                       </td>
-                      <td className="px-4 py-3 text-white/40">{entry.section || "—"}</td>
-                      <td className="px-4 py-3 text-right text-white/80">
-                        {entry.price ? `${entry.price} 🪙` : "—"}
-                      </td>
+                      <td className="meta">{entry.section || "—"}</td>
+                      <td style={{ textAlign: "right" }}>{entry.price ?? "—"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -154,27 +257,5 @@ export default async function ItemPage({
         )}
       </main>
     </div>
-  );
-}
-
-function TimelineRow({ icon, title, subtitle, meta }: { icon: string; title: string; subtitle: string; meta?: string }) {
-  return (
-    <div className="flex items-start gap-3">
-      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.06] text-sm">{icon}</div>
-      <div className="min-w-0">
-        <p className="text-sm font-medium">{title}</p>
-        <p className="truncate text-sm text-white/50">{subtitle}</p>
-        {meta && <p className="text-xs text-white/30">{meta}</p>}
-      </div>
-    </div>
-  );
-}
-
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <>
-      <span className="text-white/30">{label}</span>
-      <span className="truncate text-right">{value}</span>
-    </>
   );
 }
