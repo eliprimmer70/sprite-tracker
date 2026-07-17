@@ -265,7 +265,6 @@ export default function DashboardPage() {
                   const status = tracked.get(key);
                   const onSale = hasDiscount(item);
                   const discount = discountPct(item);
-                  const isRender = hasRender && item.renderImage;
 
                   return (
                     <button
