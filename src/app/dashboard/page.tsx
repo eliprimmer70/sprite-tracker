@@ -55,6 +55,17 @@ const RARITY_COLORS: Record<string, string> = {
   gaminglegends: "from-yellow-500/20 to-yellow-500/5 border-yellow-500/30",
 };
 
+const RARITY_BORDERS: Record<string, string> = {
+  uncommon: "ring-green-500/30",
+  rare: "ring-blue-500/30",
+  epic: "ring-purple-500/30",
+  legendary: "ring-orange-500/30",
+  marvel: "ring-red-500/30",
+  dc: "ring-blue-500/30",
+  icon: "ring-cyan-500/30",
+  gaminglegends: "ring-yellow-500/30",
+};
+
 export default function DashboardPage() {
   const router = useRouter();
   const [username, setUsername] = useState("");
@@ -147,78 +158,68 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        {Array.from({ length: 16 }).map((_, i) => (
-          <div
-            key={i}
-            className="m-2 h-32 w-24 animate-pulse rounded-xl bg-[#13131a]"
-          />
-        ))}
+      <div className="flex min-h-screen items-center justify-center bg-[#0a0a0f]">
+        <div className="grid grid-cols-4 gap-4 md:grid-cols-6 lg:grid-cols-8">
+          {Array.from({ length: 16 }).map((_, i) => (
+            <div key={i} className="h-36 w-28 animate-pulse rounded-2xl bg-white/5" />
+          ))}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="relative min-h-screen">
-      {/* Background */}
-      <div className="fixed inset-0 -z-10 bg-[#0a0a0f]">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#4a3aff]/5 via-[#9147ff]/3 to-[#00d4ff]/5" />
-      </div>
+    <div className="relative min-h-screen bg-[#0a0a0f]">
+      {/* Gradient orbs */}
+      <div className="fixed left-0 top-0 h-96 w-96 rounded-full bg-[#4a3aff]/10 blur-[120px]" />
+      <div className="fixed right-0 top-1/3 h-80 w-80 rounded-full bg-[#9147ff]/5 blur-[100px]" />
 
-      <div className="mx-auto max-w-7xl px-4 py-8">
+      <div className="relative mx-auto max-w-7xl px-4 py-8 md:px-8">
         {/* Header */}
-        <header className="mb-8 animate-fadeInUp">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">
-                Sprite Tracker
-              </h1>
-              <p className="mt-1 text-[#9ca3af]">{username}</p>
-            </div>
-            <a
-              href="/api/auth/logout"
-              className="glass glass-hover rounded-lg px-4 py-2 text-sm text-[#6b7280] transition-all hover:text-white"
-            >
-              Logout
-            </a>
+        <header className="mb-10 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
+              Sprite Tracker
+            </h1>
+            <p className="mt-1 text-sm text-[#6b7280]">{username}</p>
           </div>
+          <a
+            href="/api/auth/logout"
+            className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm text-[#6b7280] transition-colors hover:border-white/20 hover:text-white"
+          >
+            Logout
+          </a>
         </header>
 
-        {/* Stats */}
-        <div className="mb-8 grid animate-fadeInUp grid-cols-3 gap-4" style={{ animationDelay: "0.05s" }}>
-          <div className="stat-enter glass rounded-xl p-5 text-center" style={{ animationDelay: "0.1s" }}>
-            <p className="text-3xl font-bold text-white">{total}</p>
-            <p className="mt-1 text-xs uppercase tracking-wider text-[#6b7280]">
-              Total Cosmetics
-            </p>
-          </div>
-          <div className="stat-enter glass rounded-xl p-5 text-center" style={{ animationDelay: "0.15s" }}>
-            <p className="text-3xl font-bold text-green-400">{ownedCount}</p>
-            <p className="mt-1 text-xs uppercase tracking-wider text-[#6b7280]">
-              Owned
-            </p>
-          </div>
-          <div className="stat-enter glass rounded-xl p-5 text-center" style={{ animationDelay: "0.2s" }}>
-            <p className="text-3xl font-bold text-[#9147ff]">{pct}%</p>
-            <p className="mt-1 text-xs uppercase tracking-wider text-[#6b7280]">
-              Complete
-            </p>
-          </div>
+        {/* Stats Cards */}
+        <div className="mb-10 grid grid-cols-3 gap-4">
+          {[
+            { label: "Total Cosmetics", value: total, color: "text-white" },
+            { label: "Owned", value: ownedCount, color: "text-green-400" },
+            { label: "Complete", value: `${pct}%`, color: "text-[#9147ff]" },
+          ].map((s) => (
+            <div
+              key={s.label}
+              className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-center backdrop-blur-sm transition-all hover:border-white/20"
+            >
+              <p className={`text-3xl font-bold ${s.color}`}>{s.value}</p>
+              <p className="mt-1 text-xs uppercase tracking-wider text-[#6b7280]">
+                {s.label}
+              </p>
+            </div>
+          ))}
         </div>
 
         {/* Filters */}
-        <div
-          className="mb-6 flex animate-fadeInUp flex-wrap items-center gap-2"
-          style={{ animationDelay: "0.1s" }}
-        >
-          <div className="flex gap-1 rounded-lg border border-[#1e1e2d] bg-[#13131a]/80 p-1 backdrop-blur-sm">
+        <div className="mb-8 flex flex-wrap items-center gap-3">
+          <div className="flex gap-1 rounded-lg border border-white/10 bg-white/5 p-1">
             {(["all", "missing", "owned"] as Tab[]).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
                 className={`rounded-md px-4 py-2 text-sm font-medium capitalize transition-all ${
                   tab === t
-                    ? "bg-[#9147ff] text-white shadow-lg shadow-purple-500/20"
+                    ? "bg-[#9147ff] text-white shadow-lg"
                     : "text-[#6b7280] hover:text-white"
                 }`}
               >
@@ -233,7 +234,7 @@ export default function DashboardPage() {
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
-            className="rounded-lg border border-[#1e1e2d] bg-[#13131a]/80 px-3 py-2 text-sm text-white outline-none backdrop-blur-sm transition-all focus:border-[#9147ff]"
+            className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none backdrop-blur-sm transition-all focus:border-[#9147ff]"
           >
             <option value="all">All Types</option>
             {types.map((t) => (
@@ -243,62 +244,66 @@ export default function DashboardPage() {
             ))}
           </select>
 
-          <span className="ml-auto text-xs text-[#6b7280]">
-            Click any cosmetic to toggle
+          <span className="hidden text-xs text-[#6b7280] md:block">
+            Click any cosmetic to toggle owned
           </span>
         </div>
 
-        {/* Grid */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
+        {/* Cosmetic Grid */}
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
           {filtered.map((item, idx) => {
             const has = owned.has(item.id);
             const isToggling = toggling === item.id;
-            const rarityBg =
-              RARITY_COLORS[item.rarity ?? ""] ??
-              "from-gray-500/10 to-gray-500/5 border-gray-500/20";
+            const rarityColor = item.rarity ?? "";
+            const borderColor = RARITY_BORDERS[rarityColor] ?? "ring-white/10";
 
             return (
               <button
                 key={item.id}
                 onClick={() => toggleItem(item)}
                 disabled={isToggling}
-                className={`grid-item-enter group relative overflow-hidden rounded-xl border bg-gradient-to-b p-3 text-left transition-all duration-300 ${
+                className={`group relative overflow-hidden rounded-2xl border p-4 text-left transition-all duration-300 ${
                   has
-                    ? `${rarityBg} bg-[#13131a] hover:scale-[1.03] hover:shadow-lg`
-                    : "border-[#1e1e2d]/50 bg-[#13131a]/60 opacity-60 saturate-0 hover:scale-[1.03] hover:opacity-90 hover:saturate-100"
-                } ${isToggling ? "pointer-events-none scale-95 opacity-50" : ""}`}
+                    ? `border-white/10 bg-white/[0.03] hover:border-[#9147ff]/50 hover:bg-white/[0.06]`
+                    : "border-white/5 bg-white/[0.02] opacity-50 saturate-0 hover:opacity-80 hover:saturate-100"
+                } ${
+                  isToggling ? "pointer-events-none scale-95 opacity-40" : ""
+                } hover:ring-2 ${has ? borderColor : "hover:ring-white/20"}`}
                 style={{ animationDelay: `${idx * 0.02}s` }}
               >
-                {item.iconUrl && (
-                  <div className="mb-2 flex aspect-square items-center justify-center rounded-lg bg-black/30 p-2 transition-transform duration-300 group-hover:scale-110">
+                {/* Cosmetic Icon */}
+                <div className="relative mb-3 flex aspect-square items-center justify-center">
+                  <div
+                    className={`absolute inset-0 rounded-xl bg-gradient-to-b ${
+                      RARITY_COLORS[rarityColor] ?? "from-white/5 to-transparent"
+                    }`}
+                  />
+                  {item.iconUrl && (
                     <img
                       src={item.iconUrl}
                       alt={item.itemName}
-                      className="h-full w-full object-contain"
+                      className="relative h-4/5 w-4/5 object-contain drop-shadow-lg transition-transform duration-300 group-hover:scale-110"
                       loading="lazy"
                     />
-                  </div>
-                )}
+                  )}
+                  {/* Owned badge */}
+                  {has && (
+                    <div className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-green-500 shadow-lg shadow-green-500/30">
+                      <svg className="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+
+                {/* Info */}
                 <div className="space-y-1">
                   <p className="truncate text-sm font-medium leading-tight">
                     {item.itemName}
                   </p>
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs text-[#6b7280] capitalize">
-                      {TYPE_ICONS[item.itemType] ?? "📦"}{" "}
-                      {item.itemType.replace(/_/g, " ")}
-                    </span>
-                  </div>
-                  {has && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-0.5 text-xs text-green-400">
-                      Owned
-                    </span>
-                  )}
-                  {!has && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-[#6b7280]/10 px-2 py-0.5 text-xs text-[#6b7280] opacity-0 transition-opacity group-hover:opacity-100">
-                      Click to claim
-                    </span>
-                  )}
+                  <p className="truncate text-xs text-[#6b7280] capitalize">
+                    {item.itemType.replace(/_/g, " ")}
+                  </p>
                 </div>
               </button>
             );
@@ -306,16 +311,11 @@ export default function DashboardPage() {
         </div>
 
         {filtered.length === 0 && (
-          <div className="mt-16 text-center text-[#6b7280]">
+          <div className="mt-24 text-center text-[#6b7280]">
             {catalog.length === 0 ? (
-              <p className="animate-fadeInUp">
-                Catalog not synced yet. Admin needs to call{" "}
-                <code className="rounded bg-[#13131a] px-2 py-1 text-[#9147ff]">
-                  POST /api/catalog
-                </code>
-              </p>
+              <p>Catalog not synced yet.</p>
             ) : (
-              <p className="animate-fadeInUp">Nothing matches your filters</p>
+              <p>Nothing matches your filters</p>
             )}
           </div>
         )}
