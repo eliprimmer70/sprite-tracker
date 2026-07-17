@@ -31,7 +31,18 @@ export async function GET() {
     const entries = d.data?.entries ?? [];
     const sectionMap = new Map<string, ShopItemEntry[]>();
 
+    const now = new Date();
+
+    function isLive(e: Record<string, unknown>): boolean {
+      const inDate = e.inDate as string | undefined;
+      const outDate = e.outDate as string | undefined;
+      if (inDate && new Date(inDate) > now) return false;
+      if (outDate && new Date(outDate) < now) return false;
+      return true;
+    }
+
     for (const e of entries) {
+      if (!isLive(e)) continue;
       const layout = e.layout ?? {};
       const sectionName = layout.name ?? "Featured";
       const colors = e.colors ?? {};
