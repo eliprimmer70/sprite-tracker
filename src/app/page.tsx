@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { rarityGradient, rarityStyle, videoThumb } from "@/lib/rarity";
 
 interface CosmeticItem {
   id: string;
@@ -12,9 +11,8 @@ interface CosmeticItem {
   rarity: string | null;
   rarityDisplay: string | null;
   iconUrl: string | null;
-  smallIconUrl?: string | null;
-  featuredUrl?: string | null;
-  showcaseVideo?: string | null;
+  smallIconUrl: string | null;
+  featuredUrl: string | null;
   isUnreleased: boolean;
   lastShopAppearance: string | null;
   introductionText: string | null;
@@ -33,61 +31,34 @@ interface SearchResponse {
   filters: { types: FilterOption[]; rarities: FilterOption[] };
 }
 
+function rarityClass(r: string | null | undefined): string {
+  if (!r) return "";
+  return `r-${r.replace(/[^a-z0-9]/gi, "").toLowerCase()}`;
+}
+
 function CosmeticCard({ item }: { item: CosmeticItem }) {
-  const rs = rarityStyle(item.rarity);
-  const thumb = videoThumb(item.showcaseVideo);
-  // For emotes/dances, prefer the showcase-video thumbnail (real gameplay footage)
-  // over the static icon. For everything else prefer featured > icon.
-  const isEmote = item.itemType === "emote" || item.itemType === "dance";
-  const cover = !!(isEmote && thumb);
-  const src = cover
-    ? thumb!
-    : item.featuredUrl || item.iconUrl || "";
+  // Prefer featured for outfits; emotes/wraps/sprays use icon (square).
+  // The API's "icon" is already a clean cropped PNG with transparency.
+  const src = item.featuredUrl || item.iconUrl || item.smallIconUrl || "";
+  const rClass = rarityClass(item.rarity);
+  const lastSeen = item.lastShopAppearance
+    ? new Date(item.lastShopAppearance).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    : null;
 
   return (
-    <Link href={`/item/${item.id}`} className="card">
-      <div className={`card-media${cover ? " cover" : ""}`}>
+    <Link href={`/item/${item.id}`} className={`card ${rClass}`}>
+      <div className="card-media">
         {src ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={src} alt={item.name} loading="lazy" />
         ) : null}
       </div>
-      {/* bottom-up rarity gradient */}
-      <div
-        className="card-shade"
-        style={{ background: rarityGradient(item.rarity) }}
-      />
-      <div
-        className="card-shade"
-        style={{
-          background:
-            "linear-gradient(0deg, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0) 42%)",
-        }}
-      />
-      {/* always-on rarity tag (tinted), plus leak tag if unreleased */}
-      {item.rarityDisplay && (
-        <span
-          className="badge rarity-tag"
-          style={{ background: rs.hex }}
-        >
-          <span>{rs.label}</span>
-        </span>
-      )}
-      {item.isUnreleased && (
-        <span className="badge leak" style={{ left: "auto", right: "0.5rem" }}>
-          <span>Leak</span>
-        </span>
-      )}
-      {cover && (
-        <span className="play-pip" aria-hidden="true">
-          ▶
-        </span>
-      )}
+      <div className="card-shade" />
+      {item.isUnreleased && <span className="badge leak">LEAK</span>}
+      {lastSeen && !item.isUnreleased && <span className="seen-chip">{lastSeen}</span>}
       <div className="card-body">
         <p className="card-title">{item.name}</p>
-        <p className="card-sub">
-          {item.itemTypeDisplay || item.itemType}
-        </p>
+        <p className="card-sub">{item.itemTypeDisplay || item.itemType}</p>
       </div>
     </Link>
   );
@@ -95,8 +66,10 @@ function CosmeticCard({ item }: { item: CosmeticItem }) {
 
 export default function HomePage() {
   const [query, setQuery] = useState("");
+  const [debounced, setDebounced] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [rarityFilter, setRarityFilter] = useState("");
+  const [hideUnreleased, setHideUnreleased] = useState(false);
   const [sort, setSort] = useState("name");
   const [page, setPage] = useState(1);
   const [data, setData] = useState<SearchResponse | null>(null);
@@ -108,26 +81,34 @@ export default function HomePage() {
   const [statusMessage, setStatusMessage] = useState("");
   const [synced, setSynced] = useState(false);
 
+  // debounce search input
   useEffect(() => {
-    fetchCosmetics();
-  }, [page, sort, typeFilter, rarityFilter]);
+    const t = setTimeout(() => setDebounced(query), 240);
+    return () => clearTimeout(t);
+  }, [query]);
 
   useEffect(() => {
-    fetch("/api/cosmetics/search?sort=recent&limit=10&unreleased=false")
+    fetchPage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debounced, typeFilter, rarityFilter, hideUnreleased, sort, page]);
+
+  useEffect(() => {
+    fetch("/api/cosmetics/search?sort=recent&limit=12")
       .then((r) => r.json())
-      .then((d) => setPopular((d.items ?? []).filter((i: CosmeticItem) => i.iconUrl)))
+      .then((d) => setPopular((d.items ?? []).filter((i: CosmeticItem) => i.iconUrl || i.featuredUrl)))
       .catch(() => {});
   }, []);
 
-  async function fetchCosmetics() {
+  async function fetchPage() {
     setLoading(true);
     const params = new URLSearchParams();
-    if (query) params.set("q", query);
+    if (debounced) params.set("q", debounced);
     if (typeFilter) params.set("type", typeFilter);
     if (rarityFilter) params.set("rarity", rarityFilter);
+    if (hideUnreleased) params.set("unreleased", "false");
     params.set("sort", sort);
     params.set("page", String(page));
-    params.set("limit", "48");
+    params.set("limit", "60");
     const res = await fetch(`/api/cosmetics/search?${params}`);
     const d: SearchResponse = await res.json();
     setData(d);
@@ -139,45 +120,44 @@ export default function HomePage() {
     setLoading(false);
   }
 
-  async function handleSearch(e: React.FormEvent) {
-    e.preventDefault();
-    setPage(1);
-    fetchCosmetics();
-  }
-
   async function seedCatalog() {
     setSeeding(true);
-    setStatusMessage("Syncing catalog (this can take a minute)...");
+    setStatusMessage("Syncing catalog...");
     try {
       const res = await fetch("/api/cosmetics/sync", { method: "POST" });
       const d = await res.json();
-      setStatusMessage(`Synced ${d.updated?.toLocaleString?.() ?? d.updated} items`);
-      fetchCosmetics();
-      fetch("/api/cosmetics/search?sort=recent&limit=10&unreleased=false")
+      setStatusMessage(`Synced ${d.total?.toLocaleString?.() ?? d.total} items.`);
+      setSynced(true);
+      fetchPage();
+      fetch("/api/cosmetics/search?sort=recent&limit=12")
         .then((r) => r.json())
-        .then((d2) => setPopular((d2.items ?? []).filter((i: CosmeticItem) => i.iconUrl)));
+        .then((d2) => setPopular((d2.items ?? []).filter((i: CosmeticItem) => i.iconUrl || i.featuredUrl)));
     } catch {
-      setStatusMessage("Sync failed");
+      setStatusMessage("Sync failed.");
     }
     setSeeding(false);
   }
 
   const allItems = data?.items ?? [];
-  const totalItems = data?.total ?? 0;
-  const topTypes = typeOptions.slice(0, 4);
+  const hasResults = allItems.length > 0;
+  const showFiltersStrip = useMemo(
+    () => synced || loading || hasResults,
+    [synced, loading, hasResults],
+  );
 
   return (
     <div>
       <header className="topbar">
         <div className="shell topbar-inner">
           <Link href="/" className="brand">
-            <span className="brand-mark">SL</span>
-            <span>Sprite Lookup</span>
+            <span className="brand-mark">FX</span>
+            <span>Fortnite Tracker</span>
           </Link>
           <div className="nav-actions">
-            <Link href="/leaks" className="btn">Leaks</Link>
-            <button className="btn" onClick={seedCatalog} disabled={seeding}>
-              {seeding ? "Syncing…" : "Sync"}
+            <Link href="/shop" className="btn btn-ghost">Shop</Link>
+            <Link href="/leaks" className="btn btn-ghost">Leaks</Link>
+            <button className="btn btn-ghost" onClick={seedCatalog} disabled={seeding}>
+              {seeding ? "Syncing…" : "Sync catalog"}
             </button>
             <Link href="/login" className="btn btn-primary">Sign in</Link>
           </div>
@@ -186,39 +166,38 @@ export default function HomePage() {
 
       <main className="shell">
         <section className="hero">
-          <h1>Every cosmetic.<br />Tracked.</h1>
+          <h1>Catalog &middot; Shop history &middot; Leaks</h1>
           <p>
-            Search the full Fortnite catalog. See when an outfit first dropped,
-            when an emote last rotated through the shop, watch showcase videos,
-            and catch what&apos;s still unreleased.
+            Every cosmetic in the current Fortnite API. Filter by type, rarity, or series.
+            Each item shows its release chapter/season, last shop appearance, and a watchable emote showcase.
           </p>
-          {topTypes.length > 0 && (
-            <div className="stat-row">
-              {topTypes.map((t) => (
-                <div className="stat" key={t.value}>
-                  <div className="stat-num">{t.count.toLocaleString()}</div>
-                  <div className="stat-label">{t.value}s</div>
-                </div>
-              ))}
-              <div className="stat">
-                <div className="stat-num">{totalItems.toLocaleString()}</div>
-                <div className="stat-label">total</div>
-              </div>
-            </div>
-          )}
         </section>
 
         {statusMessage && (
-          <div className="panel meta" style={{ marginBottom: "1rem" }}>
+          <div className="panel meta" style={{ marginBottom: 14, padding: "10px 14px" }}>
             {statusMessage}
           </div>
         )}
 
-        {popular.length > 0 && synced && (
+        {!synced && !loading && (
+          <div className="panel" style={{ marginTop: 16, display: "grid", gap: 10 }}>
+            <div style={{ fontWeight: 600, fontSize: 14 }}>No cosmetics loaded yet.</div>
+            <p className="meta" style={{ margin: 0 }}>
+              Pull the full catalog from the community Fortnite API. Takes about a minute, no Epic account required.
+            </p>
+            <div>
+              <button className="btn btn-primary" onClick={seedCatalog} disabled={seeding}>
+                {seeding ? "Loading…" : "Load catalog"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {popular.length > 0 && !debounced && !typeFilter && !rarityFilter && (
           <section>
             <div className="section-title">
-              <h2>Recent</h2>
-              <span className="meta">Fresh from the API</span>
+              <h2>Recently added</h2>
+              <span className="meta">Last 14 days</span>
             </div>
             <div className="grid">
               {popular.map((item) => (
@@ -228,102 +207,94 @@ export default function HomePage() {
           </section>
         )}
 
-        <form className="toolbar" onSubmit={handleSearch}>
-          <input
-            className="field"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search outfits, emotes, wraps..."
-          />
-          <select
-            className="select"
-            value={typeFilter}
-            onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}
-          >
-            <option value="">All types</option>
-            {typeOptions.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.value} ({t.count.toLocaleString()})
-              </option>
-            ))}
-          </select>
-          <select
-            className="select"
-            value={rarityFilter}
-            onChange={(e) => { setRarityFilter(e.target.value); setPage(1); }}
-          >
-            <option value="">All rarities</option>
-            {rarityOptions.map((r) => (
-              <option key={r.value} value={r.value}>
-                {r.value} ({r.count.toLocaleString()})
-              </option>
-            ))}
-          </select>
-          <select
-            className="select"
-            value={sort}
-            onChange={(e) => { setSort(e.target.value); setPage(1); }}
-          >
-            <option value="name">Name A–Z</option>
-            <option value="recent">Newest</option>
-            <option value="shop">Last in shop</option>
-          </select>
-          <button className="btn btn-primary" type="submit">Search</button>
-        </form>
-
-        {loading ? (
-          <div className="grid">
-            {Array.from({ length: 12 }).map((_, i) => (
-              <div
-                key={i}
-                className="card"
-                style={{ opacity: 0.3, background: "var(--panel-2)" }}
-              />
-            ))}
-          </div>
-        ) : allItems.length === 0 ? (
-          <div className="empty">
-            {synced ? (
-              <p>No matches. Try another search.</p>
-            ) : (
-              <>
-                <p>Catalog is empty</p>
-                <button
-                  className="btn btn-primary"
-                  style={{ marginTop: "1rem" }}
-                  onClick={seedCatalog}
-                  disabled={seeding}
-                >
-                  {seeding ? "Loading…" : "Load catalog"}
-                </button>
-              </>
-            )}
-          </div>
-        ) : (
+        {showFiltersStrip && (
           <>
             <div className="section-title">
               <h2>Catalog</h2>
-              <span className="meta">{data?.total.toLocaleString()} results</span>
+              {data && <span className="meta">{data.total.toLocaleString()} items</span>}
             </div>
-            <div className="grid">
-              {allItems.map((item) => (
-                <CosmeticCard key={item.id} item={item} />
-              ))}
-            </div>
-            {data && data.totalPages > 1 && (
-              <div className="pager">
-                <button className="btn" disabled={page === 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
-                  Back
-                </button>
-                <span className="meta">{page} / {data.totalPages.toLocaleString()}</span>
-                <button
-                  className="btn"
-                  disabled={page === data.totalPages}
-                  onClick={() => setPage((p) => Math.min(data.totalPages, p + 1))}
-                >
-                  Next
-                </button>
+
+            <form
+              className="toolbar"
+              onSubmit={(e) => {
+                e.preventDefault();
+                setPage(1);
+                fetchPage();
+              }}
+            >
+              <input
+                className="field"
+                value={query}
+                onChange={(e) => { setQuery(e.target.value); setPage(1); }}
+                placeholder="Search by name…"
+              />
+              <select className="select" value={typeFilter}
+                onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}>
+                <option value="">All types</option>
+                {typeOptions.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.value} ({t.count.toLocaleString()})
+                  </option>
+                ))}
+              </select>
+              <select className="select" value={rarityFilter}
+                onChange={(e) => { setRarityFilter(e.target.value); setPage(1); }}>
+                <option value="">All rarities</option>
+                {rarityOptions.filter((r) => r.value && r.value !== "null").map((r) => (
+                  <option key={r.value} value={r.value}>
+                    {r.value} ({r.count.toLocaleString()})
+                  </option>
+                ))}
+              </select>
+              <select className="select" value={sort}
+                onChange={(e) => { setSort(e.target.value); setPage(1); }}>
+                <option value="name">A–Z</option>
+                <option value="recent">Newest</option>
+                <option value="shop">Last in shop</option>
+              </select>
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 6,
+                fontSize: 12.5, color: "var(--text-dim)", cursor: "pointer", userSelect: "none" }}>
+                <input type="checkbox" checked={hideUnreleased}
+                  onChange={(e) => { setHideUnreleased(e.target.checked); setPage(1); }}
+                  style={{ accentColor: "#3b6bff" }} />
+                Hide unreleased
+              </label>
+            </form>
+
+            {loading ? (
+              <div className="grid">
+                {Array.from({ length: 18 }).map((_, i) => (
+                  <div key={i} className="card" style={{
+                    opacity: 0.35,
+                    background: "linear-gradient(180deg, #1b2238, #11151f)",
+                  }} />
+                ))}
               </div>
+            ) : !hasResults ? (
+              <div className="empty">
+                <p>No matches. Try clearing filters.</p>
+              </div>
+            ) : (
+              <>
+                <div className="grid">
+                  {allItems.map((item) => (
+                    <CosmeticCard key={item.id} item={item} />
+                  ))}
+                </div>
+                {data && data.totalPages > 1 && (
+                  <div className="pager">
+                    <button className="btn btn-ghost" disabled={page === 1}
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}>
+                      ← Prev
+                    </button>
+                    <span className="meta">Page {page} / {data.totalPages.toLocaleString()}</span>
+                    <button className="btn btn-ghost" disabled={page === data.totalPages}
+                      onClick={() => setPage((p) => Math.min(data.totalPages, p + 1))}>
+                      Next →
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </>
         )}
