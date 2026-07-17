@@ -279,8 +279,8 @@ export default function DashboardPage() {
                       className={`group relative overflow-hidden rounded-2xl border text-left transition-all ${
                         status
                           ? status === "owned"
-                            ? "border-green-500/40 bg-green-500/[0.04]"
-                            : "border-yellow-500/40 bg-yellow-500/[0.04]"
+                            ? "border-green-500/40 ring-1 ring-green-500/20"
+                            : "border-yellow-500/40 ring-1 ring-yellow-500/20"
                           : "border-white/10 bg-white/[0.03] hover:border-white/20"
                       }`}
                     >
@@ -289,7 +289,7 @@ export default function DashboardPage() {
                           <img
                             src={item.renderImage}
                             alt={item.name}
-                            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                            className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
                             loading="lazy"
                           />
                         ) : (
@@ -297,58 +297,60 @@ export default function DashboardPage() {
                             <img
                               src={item.icon}
                               alt={item.name}
-                              className="h-full w-full object-contain transition-transform duration-500 group-hover:scale-110"
+                              className="h-full w-full object-contain transition-transform duration-700 group-hover:scale-110"
                               loading="lazy"
                             />
                           </div>
                         )}
 
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+
                         {onSale && (
-                          <div className="absolute left-2 top-2 rounded-full bg-red-500 px-2.5 py-0.5 text-xs font-bold">
-                            -{discount}%
+                          <div className="absolute left-2 top-2 -skew-x-[10deg] rounded-sm bg-white px-2.5 py-1 text-xs font-black text-black shadow-lg">
+                            <span className="inline-block skew-x-[10deg] uppercase">
+                              -{discount}%
+                            </span>
                           </div>
                         )}
 
-                        <div className="absolute bottom-2 left-2 rounded bg-black/60 px-2 py-0.5 text-[11px] text-white/90 backdrop-blur-sm">
-                          {item.type || "Item"}
+                        <div className="absolute right-2 top-2 flex flex-col gap-1">
+                          {status && (
+                            <div className="rounded-full bg-black/50 px-2 py-0.5 text-xs backdrop-blur-sm">
+                              {statusIcons[status] ?? "✅"}
+                            </div>
+                          )}
                         </div>
 
-                        {status && (
-                          <div className="absolute right-2 top-2 text-lg drop-shadow-lg">
-                            {statusIcons[status] ?? "✅"}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="p-3">
-                        <p className="truncate text-sm font-medium">
-                          {item.name}
-                        </p>
-                        <div className="mt-2 flex items-center gap-1.5">
-                          {onSale ? (
-                            <>
-                              <span className="text-sm font-bold">
-                                {item.finalPrice}
-                              </span>
-                              <span className="text-xs text-[#6b7280] line-through">
+                        <div className="absolute bottom-0 left-0 right-0 p-3">
+                          <p className="text-sm font-bold leading-tight text-white drop-shadow-lg">
+                            {item.name}
+                          </p>
+                          <div className="mt-1 flex items-center gap-1.5">
+                            {onSale ? (
+                              <>
+                                <span className="text-sm font-bold text-white drop-shadow-lg">
+                                  {item.finalPrice}
+                                </span>
+                                <span className="text-xs text-white/50 line-through">
+                                  {item.regularPrice}
+                                </span>
+                              </>
+                            ) : (
+                              <span className="text-sm font-bold text-white drop-shadow-lg">
                                 {item.regularPrice}
                               </span>
-                            </>
-                          ) : (
-                            <span className="text-sm font-bold">
-                              {item.regularPrice}
-                            </span>
+                            )}
+                            <svg className="h-3.5 w-3.5 drop-shadow-lg" viewBox="0 0 24 24" fill="none">
+                              <circle cx="12" cy="12" r="10" fill="#ffd700" />
+                              <text x="12" y="16" textAnchor="middle" fill="#000" fontSize="12" fontWeight="bold">V</text>
+                            </svg>
+                          </div>
+                          {status && (
+                            <p className="mt-0.5 text-[11px] capitalize text-white/60 drop-shadow-lg">
+                              {status === "owned" ? "Owned" : "Want"}
+                            </p>
                           )}
-                          <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
-                            <circle cx="12" cy="12" r="10" fill="#ffd700" />
-                            <text x="12" y="16" textAnchor="middle" fill="#000" fontSize="12" fontWeight="bold">V</text>
-                          </svg>
                         </div>
-                        {status && (
-                          <p className="mt-1 text-[11px] capitalize text-white/40">
-                            {status === "owned" ? "✅ Owned" : "⭐ Want"}
-                          </p>
-                        )}
                       </div>
                     </button>
                   );
